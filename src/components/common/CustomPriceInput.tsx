@@ -17,11 +17,24 @@ export interface CustomPriceInputProps {
     autoFocus?: boolean;
 }
 
-export const formatPriceNumber = (val: string | number): string => {
+export const formatPriceNumber = (
+    val: string | number,
+    allowDecimals: boolean = false,
+): string => {
     if (val === undefined || val === null || val === "") return "";
-    const clean = String(val).replace(/[^0-9]/g, "");
+    const clean = String(val).replace(/[^0-9.]/g, "");
     if (!clean) return "";
-    return Number(clean).toLocaleString("en-US");
+
+    if (allowDecimals && clean.includes(".")) {
+        const [intPart, ...decParts] = clean.split(".");
+        const decPart = decParts.join("").slice(0, 2);
+        const formattedInt = intPart ? Number(intPart).toLocaleString("en-US") : "0";
+        return `${formattedInt}.${decPart}`;
+    }
+
+    const intVal = clean.replace(/\./g, "");
+    if (!intVal) return "";
+    return Number(intVal).toLocaleString("en-US");
 };
 
 export const CustomPriceInput: React.FC<CustomPriceInputProps> = ({
@@ -43,8 +56,8 @@ export const CustomPriceInput: React.FC<CustomPriceInputProps> = ({
 
     const displayValue = React.useMemo(() => {
         if (value === undefined || value === null || value === "") return "";
-        return formatPriceNumber(value);
-    }, [value]);
+        return formatPriceNumber(value, allowDecimals);
+    }, [value, allowDecimals]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const input = e.target;
@@ -52,12 +65,15 @@ export const CustomPriceInput: React.FC<CustomPriceInputProps> = ({
         const oldCursorPos = input.selectionStart || 0;
         const prevLen = rawVal.length;
 
-        // Clean digits
-        const numericString = rawVal.replace(/[^0-9]/g, "");
-        const rawNumeric = numericString ? Number(numericString) : 0;
-        const formatted = numericString ? Number(numericString).toLocaleString("en-US") : "";
+        // Clean digits and format
+        const clean = allowDecimals
+            ? rawVal.replace(/[^0-9.]/g, "")
+            : rawVal.replace(/[^0-9]/g, "");
 
-        onChange(formatted, rawNumeric);
+        const formatted = formatPriceNumber(clean, allowDecimals);
+        const rawNumeric = clean ? parseFloat(clean) : 0;
+
+        onChange(formatted, isNaN(rawNumeric) ? 0 : rawNumeric);
 
         // Adjust cursor position so cursor doesn't jump to the end
         requestAnimationFrame(() => {
@@ -99,7 +115,7 @@ export const CustomPriceInput: React.FC<CustomPriceInputProps> = ({
                 <input
                     ref={inputRef}
                     type="text"
-                    inputMode="numeric"
+                    inputMode={allowDecimals ? "decimal" : "numeric"}
                     autoFocus={autoFocus}
                     disabled={disabled}
                     required={required}

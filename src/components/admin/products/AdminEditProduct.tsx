@@ -5,6 +5,7 @@ import { products } from "@/lib/site_data";
 import type { Product } from "@/config/types";
 import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { CustomInput } from "@/components/common/CustomInput";
+import { CustomPriceInput } from "@/components/common/CustomPriceInput";
 import { toast } from "@/components/ui/sonner";
 
 const CATEGORY_OPTIONS = [
@@ -366,7 +367,7 @@ export const AdminEditProduct: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* 3. Pricing (Updated to 2 columns matching Screenshot) */}
+                    {/* 3. Pricing with CustomPriceInput */}
                     <div className="bg-white border border-[#EAEAEA] rounded-2xl p-6 sm:p-7 shadow-xs">
                         <div className="flex items-center gap-3">
                             <span className="size-6 rounded-full bg-[#B8860B] text-white flex items-center justify-center text-xs font-bold shrink-0">
@@ -378,51 +379,19 @@ export const AdminEditProduct: React.FC = () => {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-5">
-                            <div>
-                                <label className="text-xs sm:text-sm font-semibold text-[#171717] block mb-1.5">
-                                    Selling Price in Pieces
-                                </label>
-                                <div className="flex items-center border border-[#E5E5E5] rounded-xl px-3.5 py-3 bg-white focus-within:border-[#D4AF37] transition-colors">
-                                    <span className="text-sm font-bold text-[#171717] select-none">
-                                        ₦
-                                    </span>
-                                    <span className="text-[#D5D5D5] mx-2.5 select-none">
-                                        |
-                                    </span>
-                                    <input
-                                        type="text"
-                                        value={priceInPieces}
-                                        onChange={(e) =>
-                                            setPriceInPieces(e.target.value)
-                                        }
-                                        placeholder="80,000"
-                                        className="w-full text-xs sm:text-sm outline-none placeholder:text-[#AAAAAA] bg-transparent text-[#171717] font-medium"
-                                    />
-                                </div>
-                            </div>
+                            <CustomPriceInput
+                                label="Selling Price in Pieces"
+                                placeholder="80,000"
+                                value={priceInPieces}
+                                onChange={(formatted) => setPriceInPieces(formatted)}
+                            />
 
-                            <div>
-                                <label className="text-xs sm:text-sm font-semibold text-[#171717] block mb-1.5">
-                                    Selling Price in Cases
-                                </label>
-                                <div className="flex items-center border border-[#E5E5E5] rounded-xl px-3.5 py-3 bg-white focus-within:border-[#D4AF37] transition-colors">
-                                    <span className="text-sm font-bold text-[#171717] select-none">
-                                        ₦
-                                    </span>
-                                    <span className="text-[#D5D5D5] mx-2.5 select-none">
-                                        |
-                                    </span>
-                                    <input
-                                        type="text"
-                                        value={priceInCases}
-                                        onChange={(e) =>
-                                            setPriceInCases(e.target.value)
-                                        }
-                                        placeholder="80,000"
-                                        className="w-full text-xs sm:text-sm outline-none placeholder:text-[#AAAAAA] bg-transparent text-[#171717] font-medium"
-                                    />
-                                </div>
-                            </div>
+                            <CustomPriceInput
+                                label="Selling Price in Cases"
+                                placeholder="80,000"
+                                value={priceInCases}
+                                onChange={(formatted) => setPriceInCases(formatted)}
+                            />
                         </div>
                     </div>
 

@@ -3,6 +3,7 @@ import { Plus, Search, Trash2, Pen } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { CustomConfirmModal } from "@/components/common/CustomConfirmModal";
+import { CustomPriceInput } from "@/components/common/CustomPriceInput";
 import { cn } from "@/lib/utils";
 
 export interface DeliveryAreaItem {
@@ -504,32 +505,13 @@ export const AdminDeliveries: React.FC = () => {
                                 />
                             </div>
 
-                            <div>
-                                <label className="text-xs font-semibold text-[#171717] block mb-1.5">
-                                    Delivery Fee
-                                </label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#171717] select-none">
-                                        ₦
-                                    </span>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={deliveryFeeInput}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(
-                                                /[^0-9]/g,
-                                                "",
-                                            );
-                                            setDeliveryFeeInput(
-                                                val ? Number(val).toLocaleString() : "",
-                                            );
-                                        }}
-                                        placeholder="Enter Delevery Fee"
-                                        className="w-full pl-9 pr-4 py-3 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors"
-                                    />
-                                </div>
-                            </div>
+                            <CustomPriceInput
+                                label="Delivery Fee"
+                                required
+                                value={deliveryFeeInput}
+                                onChange={(formatted) => setDeliveryFeeInput(formatted)}
+                                placeholder="Enter Delivery Fee"
+                            />
 
                             <div>
                                 <label className="text-xs font-semibold text-[#171717] block mb-2">
@@ -647,32 +629,13 @@ export const AdminDeliveries: React.FC = () => {
                                 />
                             </div>
 
-                            <div>
-                                <label className="text-xs font-semibold text-[#171717] block mb-1.5">
-                                    Delivery Fee
-                                </label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#171717] select-none">
-                                        ₦
-                                    </span>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={deliveryFeeInput}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(
-                                                /[^0-9]/g,
-                                                "",
-                                            );
-                                            setDeliveryFeeInput(
-                                                val ? Number(val).toLocaleString() : "",
-                                            );
-                                        }}
-                                        placeholder="Enter Delevery Fee"
-                                        className="w-full pl-9 pr-4 py-3 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors"
-                                    />
-                                </div>
-                            </div>
+                            <CustomPriceInput
+                                label="Delivery Fee"
+                                required
+                                value={deliveryFeeInput}
+                                onChange={(formatted) => setDeliveryFeeInput(formatted)}
+                                placeholder="Enter Delivery Fee"
+                            />
 
                             <div>
                                 <label className="text-xs font-semibold text-[#171717] block mb-2">
@@ -775,33 +738,13 @@ export const AdminDeliveries: React.FC = () => {
                         </p>
 
                         <form onSubmit={handleSaveThreshold} className="space-y-4 text-left">
-                            <div>
-                                <label className="text-xs font-semibold text-[#171717] block mb-1.5">
-                                    Minimum Order Amount
-                                </label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#171717] select-none">
-                                        ₦
-                                    </span>
-                                    <input
-                                        type="text"
-                                        required
-                                        autoFocus
-                                        value={thresholdAmountInput}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(
-                                                /[^0-9]/g,
-                                                "",
-                                            );
-                                            setThresholdAmountInput(
-                                                val ? Number(val).toLocaleString() : "",
-                                            );
-                                        }}
-                                        placeholder="Enter Delevery Fee"
-                                        className="w-full pl-9 pr-4 py-3 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors"
-                                    />
-                                </div>
-                            </div>
+                            <CustomPriceInput
+                                label="Minimum Order Amount"
+                                required
+                                value={thresholdAmountInput}
+                                onChange={(formatted) => setThresholdAmountInput(formatted)}
+                                placeholder="Enter Minimum Order Amount"
+                            />
 
                             <div>
                                 <label className="text-xs font-semibold text-[#171717] block mb-2">
