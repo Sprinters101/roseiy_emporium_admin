@@ -69,7 +69,7 @@ export const AdminLogin: React.FC = () => {
                         <CustomInput
                             name="email"
                             type="text"
-                            label="Administrator Email"
+                            label="Email"
                             placeholder="admin@roseiyemporium.com"
                             required
                             value={email}
