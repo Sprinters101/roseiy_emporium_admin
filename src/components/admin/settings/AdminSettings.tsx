@@ -140,9 +140,9 @@ const AdminEmptyIllustration = () => (
 );
 
 export const AdminSettings: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<
-        "general" | "admins" | "roles"
-    >("general");
+    const [activeTab, setActiveTab] = useState<"general" | "admins" | "roles">(
+        "general",
+    );
     const [isAddingAdmin, setIsAddingAdmin] = useState(false);
     const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
 
@@ -182,7 +182,8 @@ export const AdminSettings: React.FC = () => {
         confirmPassword: "Azulisfinished",
     });
     const [showAdminNewPassword, setShowAdminNewPassword] = useState(false);
-    const [showAdminConfirmPassword, setShowAdminConfirmPassword] = useState(false);
+    const [showAdminConfirmPassword, setShowAdminConfirmPassword] =
+        useState(false);
 
     // Admins list state
     const [admins, setAdmins] = useState<AdminUser[]>(initialAdminsData);
@@ -198,7 +199,8 @@ export const AdminSettings: React.FC = () => {
         confirmPassword: "Azulisfinished",
     });
     const [showNewAdminPass, setShowNewAdminPass] = useState(false);
-    const [showNewAdminConfirmPass, setShowNewAdminConfirmPass] = useState(false);
+    const [showNewAdminConfirmPass, setShowNewAdminConfirmPass] =
+        useState(false);
 
     // Filtered admins
     const filteredAdmins = admins.filter(
@@ -251,7 +253,9 @@ export const AdminSettings: React.FC = () => {
     // Handle Update Selected Admin Password
     const handleSaveAdminPassword = (e: React.FormEvent) => {
         e.preventDefault();
-        if (adminPasswordForm.newPassword !== adminPasswordForm.confirmPassword) {
+        if (
+            adminPasswordForm.newPassword !== adminPasswordForm.confirmPassword
+        ) {
             toast.error("Passwords do not match");
             return;
         }
@@ -286,7 +290,10 @@ export const AdminSettings: React.FC = () => {
     // Handle Create New Admin
     const handleCreateAdmin = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newAdminForm.fullName.trim() || !newAdminForm.emailAddress.trim()) {
+        if (
+            !newAdminForm.fullName.trim() ||
+            !newAdminForm.emailAddress.trim()
+        ) {
             toast.error("Please fill all required profile fields");
             return;
         }
@@ -584,7 +591,9 @@ export const AdminSettings: React.FC = () => {
                                                     ? "text"
                                                     : "password"
                                             }
-                                            value={adminPasswordForm.newPassword}
+                                            value={
+                                                adminPasswordForm.newPassword
+                                            }
                                             onChange={(e) =>
                                                 setAdminPasswordForm({
                                                     ...adminPasswordForm,
@@ -628,7 +637,8 @@ export const AdminSettings: React.FC = () => {
                                             onChange={(e) =>
                                                 setAdminPasswordForm({
                                                     ...adminPasswordForm,
-                                                    confirmPassword: e.target.value,
+                                                    confirmPassword:
+                                                        e.target.value,
                                                 })
                                             }
                                             className="w-full pl-4 pr-10 py-3 text-xs sm:text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] text-[#171717] transition-colors"
@@ -797,7 +807,11 @@ export const AdminSettings: React.FC = () => {
                                 </label>
                                 <div className="relative">
                                     <input
-                                        type={showNewAdminPass ? "text" : "password"}
+                                        type={
+                                            showNewAdminPass
+                                                ? "text"
+                                                : "password"
+                                        }
                                         required
                                         value={newAdminForm.password}
                                         onChange={(e) =>
@@ -812,7 +826,9 @@ export const AdminSettings: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={() =>
-                                            setShowNewAdminPass(!showNewAdminPass)
+                                            setShowNewAdminPass(
+                                                !showNewAdminPass,
+                                            )
                                         }
                                         className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#888888] hover:text-[#171717] transition-colors cursor-pointer"
                                     >
@@ -879,7 +895,9 @@ export const AdminSettings: React.FC = () => {
                     <div className="flex items-center gap-1.5 text-xs text-[#737373] font-hanken mb-1">
                         <span>Dashboard</span>
                         <span>/</span>
-                        <span className="text-[#171717] font-semibold">Settings</span>
+                        <span className="text-[#171717] font-semibold">
+                            Settings
+                        </span>
                     </div>
                     <h1 className="text-2xl sm:text-3xl font-bold font-playfair text-[#171717]">
                         Settings
@@ -897,7 +915,9 @@ export const AdminSettings: React.FC = () => {
                         className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-[#D4AF37] text-white font-semibold text-xs sm:text-sm hover:bg-[#C5A265] transition-all shadow-xs cursor-pointer self-start sm:self-auto"
                     >
                         <span>Add Admin</span>
-                        <span className="text-base font-bold leading-none">+</span>
+                        <span className="text-base font-bold leading-none">
+                            +
+                        </span>
                     </button>
                 )}
             </div>
@@ -930,7 +950,7 @@ export const AdminSettings: React.FC = () => {
                     Admin Management
                 </button>
 
-                <button
+                {/* <button
                     type="button"
                     onClick={() => setActiveTab("roles")}
                     className={cn(
@@ -941,7 +961,7 @@ export const AdminSettings: React.FC = () => {
                     )}
                 >
                     Roles & Permissions
-                </button>
+                </button> */}
             </div>
 
             {/* TAB 1: GENERAL SETTINGS */}
@@ -970,7 +990,9 @@ export const AdminSettings: React.FC = () => {
                                 }}
                                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                             >
-                                <span>{isEditingProfile ? "Save Changes" : "Edit"}</span>
+                                <span>
+                                    {isEditingProfile ? "Save Changes" : "Edit"}
+                                </span>
                                 <Pen className="size-3.5" />
                             </button>
                         </div>
@@ -1110,7 +1132,9 @@ export const AdminSettings: React.FC = () => {
                                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                             >
                                 <span>
-                                    {isEditingBusiness ? "Save Changes" : "Edit"}
+                                    {isEditingBusiness
+                                        ? "Save Changes"
+                                        : "Edit"}
                                 </span>
                                 <Pen className="size-3.5" />
                             </button>
@@ -1297,7 +1321,11 @@ export const AdminSettings: React.FC = () => {
                                     </label>
                                     <div className="relative">
                                         <input
-                                            type={showNewPassword ? "text" : "password"}
+                                            type={
+                                                showNewPassword
+                                                    ? "text"
+                                                    : "password"
+                                            }
                                             value={passwordData.newPassword}
                                             onChange={(e) =>
                                                 setPasswordData({
@@ -1310,7 +1338,9 @@ export const AdminSettings: React.FC = () => {
                                         <button
                                             type="button"
                                             onClick={() =>
-                                                setShowNewPassword(!showNewPassword)
+                                                setShowNewPassword(
+                                                    !showNewPassword,
+                                                )
                                             }
                                             className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#888888] hover:text-[#171717] transition-colors cursor-pointer"
                                         >
@@ -1338,7 +1368,8 @@ export const AdminSettings: React.FC = () => {
                                             onChange={(e) =>
                                                 setPasswordData({
                                                     ...passwordData,
-                                                    confirmPassword: e.target.value,
+                                                    confirmPassword:
+                                                        e.target.value,
                                                 })
                                             }
                                             className="w-full pl-4 pr-10 py-3 text-xs sm:text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] text-[#171717] transition-colors"
@@ -1382,7 +1413,9 @@ export const AdminSettings: React.FC = () => {
                                 className="flex items-center gap-1.5 px-6 py-2.5 rounded-lg bg-[#D4AF37] text-white font-semibold text-xs sm:text-sm hover:bg-[#C5A265] transition-all shadow-xs cursor-pointer"
                             >
                                 <span>Add Admin</span>
-                                <span className="text-base font-bold leading-none">+</span>
+                                <span className="text-base font-bold leading-none">
+                                    +
+                                </span>
                             </button>
                         </div>
                     ) : (
@@ -1394,7 +1427,9 @@ export const AdminSettings: React.FC = () => {
                                 <input
                                     type="text"
                                     value={adminSearch}
-                                    onChange={(e) => setAdminSearch(e.target.value)}
+                                    onChange={(e) =>
+                                        setAdminSearch(e.target.value)
+                                    }
                                     placeholder="Search administrator...."
                                     className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-white border border-[#E5E5E5] rounded-lg focus:outline-none focus:border-[#D4AF37] placeholder:text-[#888888] transition-colors"
                                 />
@@ -1430,65 +1465,78 @@ export const AdminSettings: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-[#F0F0F0]">
-                                            {filteredAdmins.map((admin, index) => (
-                                                <tr
-                                                    key={admin.id}
-                                                    className="hover:bg-[#FCFBF8] transition-colors"
-                                                >
-                                                    <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373] font-medium">
-                                                        {String(index + 1).padStart(2, "0")}
-                                                    </td>
-                                                    <td className="py-4.5 px-6 text-xs sm:text-sm font-semibold text-[#171717]">
-                                                        {admin.name}
-                                                    </td>
-                                                    <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373]">
-                                                        {admin.role}
-                                                    </td>
-                                                    <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373]">
-                                                        {admin.email}
-                                                    </td>
-                                                    <td className="py-4.5 px-6">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span
-                                                                className={cn(
-                                                                    "size-2 rounded-full",
-                                                                    admin.status === "active"
-                                                                        ? "bg-[#10B981]"
-                                                                        : "bg-[#EF4444]",
-                                                                )}
-                                                            />
-                                                            <span
-                                                                className={cn(
-                                                                    "text-xs font-semibold",
-                                                                    admin.status === "active"
-                                                                        ? "text-[#10B981]"
-                                                                        : "text-[#EF4444]",
-                                                                )}
+                                            {filteredAdmins.map(
+                                                (admin, index) => (
+                                                    <tr
+                                                        key={admin.id}
+                                                        className="hover:bg-[#FCFBF8] transition-colors"
+                                                    >
+                                                        <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373] font-medium">
+                                                            {String(
+                                                                index + 1,
+                                                            ).padStart(2, "0")}
+                                                        </td>
+                                                        <td className="py-4.5 px-6 text-xs sm:text-sm font-semibold text-[#171717]">
+                                                            {admin.name}
+                                                        </td>
+                                                        <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373]">
+                                                            {admin.role}
+                                                        </td>
+                                                        <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373]">
+                                                            {admin.email}
+                                                        </td>
+                                                        <td className="py-4.5 px-6">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span
+                                                                    className={cn(
+                                                                        "size-2 rounded-full",
+                                                                        admin.status ===
+                                                                            "active"
+                                                                            ? "bg-[#10B981]"
+                                                                            : "bg-[#EF4444]",
+                                                                    )}
+                                                                />
+                                                                <span
+                                                                    className={cn(
+                                                                        "text-xs font-semibold",
+                                                                        admin.status ===
+                                                                            "active"
+                                                                            ? "text-[#10B981]"
+                                                                            : "text-[#EF4444]",
+                                                                    )}
+                                                                >
+                                                                    {admin.status ===
+                                                                    "active"
+                                                                        ? "Active"
+                                                                        : "Inactive"}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373]">
+                                                            {admin.lastLogin}
+                                                        </td>
+                                                        <td className="py-4.5 px-6 text-right">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedAdmin(
+                                                                        admin,
+                                                                    );
+                                                                    setIsAdminEditingProfile(
+                                                                        false,
+                                                                    );
+                                                                    setIsAdminEditingPassword(
+                                                                        false,
+                                                                    );
+                                                                }}
+                                                                className="text-xs sm:text-sm font-medium text-[#171717] hover:text-[#D4AF37] underline underline-offset-2 transition-colors cursor-pointer"
                                                             >
-                                                                {admin.status === "active"
-                                                                    ? "Active"
-                                                                    : "Inactive"}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373]">
-                                                        {admin.lastLogin}
-                                                    </td>
-                                                    <td className="py-4.5 px-6 text-right">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setSelectedAdmin(admin);
-                                                                setIsAdminEditingProfile(false);
-                                                                setIsAdminEditingPassword(false);
-                                                            }}
-                                                            className="text-xs sm:text-sm font-medium text-[#171717] hover:text-[#D4AF37] underline underline-offset-2 transition-colors cursor-pointer"
-                                                        >
-                                                            View
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                                                View
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ),
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
@@ -1505,7 +1553,8 @@ export const AdminSettings: React.FC = () => {
                         Roles & Permissions
                     </h3>
                     <p className="text-xs sm:text-sm text-[#737373] max-w-md mx-auto">
-                        Configure role-based access control and granular permission sets for administrative team members.
+                        Configure role-based access control and granular
+                        permission sets for administrative team members.
                     </p>
                 </div>
             )}

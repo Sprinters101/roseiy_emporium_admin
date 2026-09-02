@@ -18,21 +18,21 @@ export const AdminLogin: React.FC = () => {
         setIsLoading(true);
 
         setTimeout(() => {
-            // Mock successful admin login
-            const dummyToken = "admin-jwt-token-roseiy-" + Date.now();
+            // Allow login with any credentials for demo/development
+            const dummyToken = `admin-jwt-token-roseiy-${Date.now()}`;
             const adminUser = {
                 id: "admin-1",
-                email: email,
+                email: email.trim() || "admin@roseiyemporium.com",
                 firstName: "Roseiy",
                 lastName: "Bolanle",
-                role: "admin",
+                role: "Super Administrator",
             };
 
             login(dummyToken, adminUser);
             toast.success("Welcome to Roseiy Emporium Admin Portal");
-            navigate("/");
+            navigate("/", { replace: true });
             setIsLoading(false);
-        }, 600);
+        }, 400);
     };
 
     return (
@@ -49,19 +49,18 @@ export const AdminLogin: React.FC = () => {
             <div className="w-full max-w-md mx-auto">
                 <img
                     src={footerLogo}
-                    alt=""
+                    alt="Roseiy Emporium Logo"
                     className="w-[140px] relative object-contain block mx-auto z-20"
                 />
 
-                <div className="w-full mt-6  bg-black-700  rounded-lg p-8 shadow-2xl relative z-10 animate-fadeIn">
+                <div className="w-full mt-6 bg-black-700 rounded-2xl p-8 shadow-2xl relative z-10 animate-fadeIn border border-[#262626]">
                     {/* Brand Header */}
                     <div className="text-center mb-8">
                         <h1 className="text-2xl md:text-[1.9375rem] font-bold font-playfair text-white tracking-tight">
                             Welcome Back
                         </h1>
                         <p className="text-xs sm:text-sm text-ivory-600 font-hanken mt-2">
-                            Please enter you login details to access your
-                            account
+                            Enter any login details to access the admin portal
                         </p>
                     </div>
 
@@ -69,7 +68,7 @@ export const AdminLogin: React.FC = () => {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <CustomInput
                             name="email"
-                            type="email"
+                            type="text"
                             label="Administrator Email"
                             placeholder="admin@roseiyemporium.com"
                             required
@@ -90,7 +89,7 @@ export const AdminLogin: React.FC = () => {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full mt-6 flex items-center justify-center gap-2 py-3 rounded-lg bg-[#d4af37] text-black font-semibold text-sm hover:bg-[#e5c158] transition-all shadow-md cursor-pointer disabled:opacity-50"
+                            className="w-full mt-6 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#d4af37] hover:bg-[#e5c158] text-black font-semibold text-sm transition-all shadow-md cursor-pointer disabled:opacity-50"
                         >
                             <span>
                                 {isLoading

@@ -19,16 +19,25 @@ export interface AuthContextType {
 }
 
 const TOKEN_KEY = "accessToken";
+const USER_KEY = "userData";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [token, setToken] = useState<string | null>(() => {
-        return Cookies.get(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || null;
+        return Cookies.get(TOKEN_KEY) || null;
     });
 
     const [user, setUser] = useState<UserProfile | null>(() => {
-        const storedUser = localStorage.getItem("userData");
+        const cookieUser = Cookies.get(USER_KEY);
+        if (cookieUser) {
+            try {
+                return JSON.parse(cookieUser);
+            } catch {
+                return null;
+            }
+        }
+        const storedUser = localStorage.getItem(USER_KEY);
         return storedUser ? JSON.parse(storedUser) : null;
     });
 
@@ -36,6 +45,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const cookieToken = Cookies.get(TOKEN_KEY);
         if (cookieToken && cookieToken !== token) {
             setToken(cookieToken);
+        } else if (!cookieToken && token) {
+            setToken(null);
         }
     }, [token]);
 
@@ -43,16 +54,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Store token in cookies (expires in 7 days)
         Cookies.set(TOKEN_KEY, newToken, { expires: 7, path: "/" });
         setToken(newToken);
+
         if (userData) {
             setUser(userData);
-            localStorage.setItem("userData", JSON.stringify(userData));
+            Cookies.set(USER_KEY, JSON.stringify(userData), { expires: 7, path: "/" });
+            localStorage.setItem(USER_KEY, JSON.stringify(userData));
         }
     };
 
     const logout = () => {
         Cookies.remove(TOKEN_KEY, { path: "/" });
-        localStorage.removeItem("userData");
-        localStorage.removeItem("accessToken");
+        Cookies.remove(USER_KEY, { path: "/" });
+        localStorage.removeItem(USER_KEY);
+        localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem("refreshToken");
         setToken(null);
         setUser(null);
@@ -63,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             value={{
                 token,
                 user,
-                role: user?.role || "guest",
+                role: user?.role || "admin",
                 isAuthenticated: Boolean(token),
                 login,
                 logout,
@@ -81,3 +95,5 @@ export const useAuth = (): AuthContextType => {
     }
     return context;
 };
+
+export default AuthContext;

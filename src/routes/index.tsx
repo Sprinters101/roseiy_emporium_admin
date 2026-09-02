@@ -1,4 +1,6 @@
+import React from "react";
 import { createBrowserRouter, Navigate } from "react-router";
+import { useAuth } from "@/context/AuthContext";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { AdminOverview } from "@/components/admin/dashboard/AdminOverview";
 import { AdminProducts } from "@/components/admin/products/AdminProducts";
@@ -14,11 +16,33 @@ import { AdminCustomerDetails } from "@/components/admin/customers/AdminCustomer
 import { AdminSettings } from "@/components/admin/settings/AdminSettings";
 import { AdminLogin } from "@/components/admin/auth/AdminLogin";
 
+// Route guard: Redirects to /login if not authenticated
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { isAuthenticated } = useAuth();
+    if (!isAuthenticated) {
+        return <Navigate to="/login" replace />;
+    }
+    return <>{children}</>;
+};
+
+// Public auth guard: Redirects to / if already authenticated
+const PublicAuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { isAuthenticated } = useAuth();
+    if (isAuthenticated) {
+        return <Navigate to="/" replace />;
+    }
+    return <>{children}</>;
+};
+
 export const router = createBrowserRouter([
-    // Dedicated Admin Management Application
+    // Dedicated Admin Management Application (Protected)
     {
         path: "/",
-        element: <AdminLayout />,
+        element: (
+            <ProtectedRoute>
+                <AdminLayout />
+            </ProtectedRoute>
+        ),
         children: [
             { index: true, element: <AdminOverview /> },
             { path: "products", element: <AdminProducts /> },
@@ -36,13 +60,17 @@ export const router = createBrowserRouter([
         ],
     },
 
-    // Admin Auth Gateway
+    // Admin Auth Gateway (Public with auto-redirect if logged in)
     {
         path: "/login",
-        element: <AdminLogin />,
+        element: (
+            <PublicAuthRoute>
+                <AdminLogin />
+            </PublicAuthRoute>
+        ),
     },
 
-    // Catch-all redirect to Admin Dashboard
+    // Catch-all redirect
     {
         path: "*",
         element: <Navigate to="/" replace />,
