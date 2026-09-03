@@ -40,9 +40,6 @@ export const AdminTopbar: React.FC<AdminTopbarProps> = ({
                 >
                     <Menu className="size-5" />
                 </button>
-                <span className="font-playfair text-2xl font-bold tracking-wider text-[#d4af37]">
-                    R<span className="text-[#ecd685]">E</span>
-                </span>
             </div>
 
             <div className="flex w-full items-center justify-between lg:max-w-142.25">
