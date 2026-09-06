@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { ArrowLeft, CloudUpload, X, Info } from "lucide-react";
 import { useNavigate } from "react-router";
 import type { Product } from "@/config/types";
@@ -6,6 +6,7 @@ import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { CustomInput } from "@/components/common/CustomInput";
 import { CustomPriceInput } from "@/components/common/CustomPriceInput";
 import { toast } from "@/components/ui/sonner";
+import { useGetAdminBrands, useGetAdminCategories } from "@/service/queries";
 
 const CATEGORY_OPTIONS = [
     { label: "Whiskey", value: "Whiskey" },
@@ -48,6 +49,32 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
 }) => {
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Fetch live categories from API
+    const { data: categoriesResponse } = useGetAdminCategories();
+    const categoryOptions = useMemo(() => {
+        const apiCategories = categoriesResponse?.data?.categories || [];
+        if (apiCategories.length > 0) {
+            return apiCategories.map((c) => ({
+                label: c.name,
+                value: c.name,
+            }));
+        }
+        return CATEGORY_OPTIONS;
+    }, [categoriesResponse]);
+
+    // Fetch live brands from API
+    const { data: brandsResponse } = useGetAdminBrands();
+    const brandOptions = useMemo(() => {
+        const apiBrands = brandsResponse?.data?.brands || [];
+        if (apiBrands.length > 0) {
+            return apiBrands.map((b) => ({
+                label: b.name,
+                value: b.name,
+            }));
+        }
+        return BRAND_OPTIONS;
+    }, [brandsResponse]);
 
     // Form state
     const [name, setName] = useState("");
@@ -217,7 +244,7 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
                                 <CustomDropdown
                                     variant="light"
                                     placeholder="Select Category"
-                                    options={CATEGORY_OPTIONS}
+                                    options={categoryOptions}
                                     value={category}
                                     onChange={setCategory}
                                 />
@@ -230,7 +257,7 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
                                 <CustomDropdown
                                     variant="light"
                                     placeholder="Select Brand"
-                                    options={BRAND_OPTIONS}
+                                    options={brandOptions}
                                     value={brand}
                                     onChange={setBrand}
                                 />

@@ -17,7 +17,17 @@ export const AdminTopbar: React.FC<AdminTopbarProps> = ({
     const adminName = user?.firstName
         ? `${user.firstName} ${user.lastName || ""}`.trim()
         : "Roseiy Bolanle";
-    const adminRole = user?.role || "Super Administrator";
+
+    const formatRole = (role?: string) => {
+        if (!role) return "Super Administrator";
+        if (role === "super_admin" || role === "admin") return "Super Administrator";
+        if (role === "store_manager") return "Store Manager";
+        if (role === "order_manager") return "Order Manager";
+        if (role === "product_manager") return "Product Manager";
+        return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    };
+
+    const adminRole = formatRole(user?.role);
 
     // Initials e.g. "RB"
     const initials =

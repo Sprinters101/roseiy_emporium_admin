@@ -1,27 +1,16 @@
 import React, { useState, useMemo } from "react";
-import { Plus, Search, Trash2, Pen } from "lucide-react";
+import { Plus, Search, Trash2, Pen, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { CustomConfirmModal } from "@/components/common/CustomConfirmModal";
 import { cn } from "@/lib/utils";
-
-export interface BrandItem {
-    id: string;
-    name: string;
-    productCount: number;
-    createdAt: string;
-}
-
-const initialBrandsData: BrandItem[] = [
-    { id: "1", name: "Don Julio", productCount: 48, createdAt: "27 July 2026" },
-    { id: "2", name: "Moet & Chandon", productCount: 48, createdAt: "27 July 2026" },
-    { id: "3", name: "Hennessy", productCount: 48, createdAt: "27 July 2026" },
-    { id: "4", name: "Clase Azul", productCount: 48, createdAt: "27 July 2026" },
-    { id: "5", name: "Bacardi", productCount: 48, createdAt: "27 July 2026" },
-    { id: "6", name: "VOSS", productCount: 48, createdAt: "27 July 2026" },
-    { id: "7", name: "Don Perignon", productCount: 48, createdAt: "27 July 2026" },
-    { id: "8", name: "Glenfiddich", productCount: 48, createdAt: "27 July 2026" },
-];
+import { useGetAdminBrands } from "@/service/queries";
+import {
+    useCreateBrand,
+    useUpdateBrand,
+    useDeleteBrand,
+} from "@/service/mutations";
+import type { Brand } from "@/service/types";
 
 const SORT_OPTIONS = [
     { label: "Sort By: A-Z", value: "az" },
@@ -29,6 +18,22 @@ const SORT_OPTIONS = [
     { label: "Sort By: Newest", value: "newest" },
     { label: "Sort By: Most Products", value: "products" },
 ];
+
+// Helper to format ISO date
+const formatBrandDate = (dateStr?: string) => {
+    if (!dateStr) return "N/A";
+    try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        return date.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+        });
+    } catch {
+        return dateStr;
+    }
+};
 
 // Crown Icon matching screenshot design
 const CrownIcon = ({ className }: { className?: string }) => (
@@ -77,30 +82,63 @@ const EmptyBoxIllustration = () => (
 );
 
 export const AdminBrands: React.FC = () => {
-    const [brands, setBrands] = useState<BrandItem[]>(initialBrandsData);
+    // React Query API hooks
+    const {
+        data: brandsResponse,
+        isLoading,
+        isError,
+        error,
+        refetch,
+    } = useGetAdminBrands();
+
+    const { mutate: createBrand, isPending: isCreating } = useCreateBrand();
+    const { mutate: updateBrand, isPending: isUpdating } = useUpdateBrand();
+    const { mutate: deleteBrand, isPending: isDeleting } = useDeleteBrand();
+
     const [searchTerm, setSearchTerm] = useState("");
     const [sortBy, setSortBy] = useState("az");
 
     // Modal states
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [editingBrand, setEditingBrand] = useState<BrandItem | null>(null);
-    const [brandToDelete, setBrandToDelete] = useState<BrandItem | null>(null);
+    const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+    const [brandToDelete, setBrandToDelete] = useState<Brand | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     // Form field state
     const [brandNameInput, setBrandNameInput] = useState("");
+    const [brandDescInput, setBrandDescInput] = useState("");
+
+    // Normalized brands from API
+    const brands: Brand[] = useMemo(() => {
+        const raw =
+            brandsResponse?.data?.brands ||
+            (Array.isArray(brandsResponse?.data) ? brandsResponse.data : []);
+        return raw;
+    }, [brandsResponse]);
 
     // Filtered & Sorted brands
     const filteredBrands = useMemo(() => {
         return brands
-            .filter((brand) =>
-                brand.name.toLowerCase().includes(searchTerm.trim().toLowerCase()),
-            )
+            .filter((brand) => {
+                const term = searchTerm.trim().toLowerCase();
+                if (!term) return true;
+                const nameMatch = brand.name?.toLowerCase().includes(term);
+                const descMatch = brand.description?.toLowerCase().includes(term);
+                return nameMatch || descMatch;
+            })
             .sort((a, b) => {
                 if (sortBy === "az") return a.name.localeCompare(b.name);
                 if (sortBy === "za") return b.name.localeCompare(a.name);
-                if (sortBy === "products") return b.productCount - a.productCount;
-                if (sortBy === "newest") return Number(b.id) - Number(a.id);
+                if (sortBy === "products") {
+                    const countA = (a as any).productCount ?? 0;
+                    const countB = (b as any).productCount ?? 0;
+                    return countB - countA;
+                }
+                if (sortBy === "newest") {
+                    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                    return timeB - timeA;
+                }
                 return 0;
             });
     }, [brands, searchTerm, sortBy]);
@@ -108,52 +146,72 @@ export const AdminBrands: React.FC = () => {
     // Handle Create Brand
     const handleCreateBrand = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!brandNameInput.trim()) {
+        const trimmed = brandNameInput.trim();
+        if (!trimmed) {
             toast.error("Please enter a valid brand name");
             return;
         }
 
-        const newBrand: BrandItem = {
-            id: String(Date.now()),
-            name: brandNameInput.trim(),
-            productCount: 0,
-            createdAt: `${new Date().getDate()} ${new Date().toLocaleString("en-US", { month: "long" })} ${new Date().getFullYear()}`,
-        };
+        createBrand(
+            {
+                name: trimmed,
+                description: brandDescInput.trim() || undefined,
+            },
+            {
+                onSuccess: () => {
+                    setIsAddModalOpen(false);
+                    setBrandNameInput("");
+                    setBrandDescInput("");
+                },
+            },
+        );
+    };
 
-        setBrands((prev) => [...prev, newBrand]);
-        toast.success(`Brand "${newBrand.name}" created`);
-        setIsAddModalOpen(false);
-        setBrandNameInput("");
+    // Open Edit Modal
+    const handleOpenEdit = (brand: Brand) => {
+        setEditingBrand(brand);
+        setBrandNameInput(brand.name);
+        setBrandDescInput(brand.description || "");
     };
 
     // Handle Edit Brand
     const handleSaveEdit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!brandNameInput.trim() || !editingBrand) {
+        const trimmed = brandNameInput.trim();
+        if (!trimmed || !editingBrand) {
             toast.error("Please enter a brand name");
             return;
         }
 
-        setBrands((prev) =>
-            prev.map((b) =>
-                b.id === editingBrand.id
-                    ? { ...b, name: brandNameInput.trim() }
-                    : b,
-            ),
+        const brandId = editingBrand.brandId || (editingBrand as any).id;
+        updateBrand(
+            {
+                brandId,
+                payload: {
+                    name: trimmed,
+                    description: brandDescInput.trim() || undefined,
+                },
+            },
+            {
+                onSuccess: () => {
+                    setEditingBrand(null);
+                    setBrandNameInput("");
+                    setBrandDescInput("");
+                },
+            },
         );
-
-        toast.success(`Brand updated to "${brandNameInput.trim()}"`);
-        setEditingBrand(null);
-        setBrandNameInput("");
     };
 
     // Handle Delete Brand
     const handleConfirmDelete = () => {
         if (!brandToDelete) return;
-        setBrands((prev) => prev.filter((b) => b.id !== brandToDelete.id));
-        toast.success(`Brand "${brandToDelete.name}" deleted`);
-        setIsDeleteModalOpen(false);
-        setBrandToDelete(null);
+        const brandId = brandToDelete.brandId || (brandToDelete as any).id;
+        deleteBrand(brandId, {
+            onSuccess: () => {
+                setIsDeleteModalOpen(false);
+                setBrandToDelete(null);
+            },
+        });
     };
 
     const hasBrands = brands.length > 0;
@@ -172,7 +230,7 @@ export const AdminBrands: React.FC = () => {
                         Brands
                     </h1>
                     <p className="text-xs sm:text-sm text-[#737373] font-hanken mt-1">
-                        Manage your product category
+                        Manage your store brands
                     </p>
                 </div>
 
@@ -182,6 +240,7 @@ export const AdminBrands: React.FC = () => {
                         type="button"
                         onClick={() => {
                             setBrandNameInput("");
+                            setBrandDescInput("");
                             setIsAddModalOpen(true);
                         }}
                         className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-[#D4AF37] text-white font-semibold text-xs sm:text-sm hover:bg-[#C5A265] transition-all shadow-xs cursor-pointer self-start sm:self-auto"
@@ -217,90 +276,147 @@ export const AdminBrands: React.FC = () => {
                 </div>
             </div>
 
-            {/* Main Content Area: Brands Grid OR Empty State */}
-            {!hasBrands || filteredBrands.length === 0 ? (
-                /* Empty State (Screenshot 1) */
+            {/* Main Content Area: Loading Skeleton, Error State, Empty State, or Grid */}
+            {isLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <div
+                            key={i}
+                            className="bg-white border border-[#EAEAEA] rounded-2xl p-5 shadow-xs flex items-center justify-between animate-pulse"
+                        >
+                            <div className="flex items-center gap-3.5 w-full">
+                                <div className="size-12 rounded-full bg-[#F0EBE0]/60 shrink-0" />
+                                <div className="space-y-2 flex-1">
+                                    <div className="h-4 bg-gray-200 rounded w-2/3" />
+                                    <div className="h-3 bg-gray-100 rounded w-1/3" />
+                                    <div className="h-2.5 bg-gray-100 rounded w-1/2" />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : isError ? (
+                <div className="py-16 flex flex-col items-center justify-center text-center bg-white border border-red-100 rounded-2xl p-8">
+                    <p className="text-sm font-semibold text-red-600 mb-1">
+                        Failed to load brands
+                    </p>
+                    <p className="text-xs text-[#737373] mb-4 max-w-sm">
+                        {(error as any)?.response?.data?.message ||
+                            (error as any)?.message ||
+                            "An error occurred while communicating with the server."}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => refetch()}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#D4AF37] text-white text-xs font-semibold hover:bg-[#C5A265] transition-colors cursor-pointer"
+                    >
+                        <RefreshCw className="size-3.5" />
+                        <span>Retry</span>
+                    </button>
+                </div>
+            ) : !hasBrands || filteredBrands.length === 0 ? (
+                /* Empty State */
                 <div className="py-24 sm:py-32 flex flex-col items-center justify-center text-center">
                     <EmptyBoxIllustration />
                     <h3 className="text-sm sm:text-base font-bold text-[#171717] mt-3">
-                        No brands added yet
+                        {searchTerm
+                            ? "No brands match your search"
+                            : "No brands added yet"}
                     </h3>
                     <button
                         type="button"
                         onClick={() => {
-                            setBrandNameInput("");
-                            setIsAddModalOpen(true);
+                            if (searchTerm) {
+                                setSearchTerm("");
+                            } else {
+                                setBrandNameInput("");
+                                setBrandDescInput("");
+                                setIsAddModalOpen(true);
+                            }
                         }}
                         className="flex items-center gap-1.5 px-6 py-2.5 rounded-lg bg-[#D4AF37] text-white font-semibold text-xs sm:text-sm hover:bg-[#C5A265] transition-all shadow-xs cursor-pointer mt-4"
                     >
-                        <span>Add Brands</span>
-                        <Plus className="size-4 text-white" />
+                        {searchTerm ? (
+                            <span>Clear Search</span>
+                        ) : (
+                            <>
+                                <span>Add Brands</span>
+                                <Plus className="size-4 text-white" />
+                            </>
+                        )}
                     </button>
                 </div>
             ) : (
-                /* Brands 3-Column Grid (Screenshot 2) */
+                /* Brands 3-Column Grid */
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {filteredBrands.map((brand) => (
-                            <div
-                                key={brand.id}
-                                className="bg-white border border-[#EAEAEA] hover:border-[#D4AF37]/50 rounded-2xl p-5 shadow-xs flex items-center justify-between transition-all group"
-                            >
-                                {/* Left Side: Crown Icon + Text info */}
-                                <div className="flex items-center gap-3.5 min-w-0">
-                                    <div className="size-12 rounded-full bg-[#FAF7F2] border border-[#F0EBE0] flex items-center justify-center shrink-0">
-                                        <CrownIcon />
-                                    </div>
-                                    <div className="truncate">
-                                        <h3 className="text-base font-bold text-[#171717] truncate">
-                                            {brand.name}
-                                        </h3>
-                                        <p className="text-xs font-bold text-[#D4AF37] mt-0.5">
-                                            {brand.productCount} Products
-                                        </p>
-                                        <p className="text-[11px] text-[#888888] mt-0.5">
-                                            Created on {brand.createdAt}
-                                        </p>
-                                    </div>
-                                </div>
+                        {filteredBrands.map((brand) => {
+                            const brandId =
+                                brand.brandId || (brand as any).id;
+                            const productCount =
+                                (brand as any).productCount ??
+                                (brand as any).productsCount ??
+                                0;
 
-                                {/* Right Side: Edit & Delete Action Buttons */}
-                                <div className="flex items-center gap-2.5 shrink-0 ml-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setEditingBrand(brand);
-                                            setBrandNameInput(brand.name);
-                                        }}
-                                        className="size-8 rounded-full flex items-center justify-center text-[#737373] hover:text-[#171717] hover:bg-[#F5F5F5] transition-colors cursor-pointer"
-                                        title="Edit Brand"
-                                    >
-                                        <Pen className="size-4" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setBrandToDelete(brand);
-                                            setIsDeleteModalOpen(true);
-                                        }}
-                                        className="size-8 rounded-full flex items-center justify-center text-[#EF4444] hover:bg-red-50 transition-colors cursor-pointer"
-                                        title="Delete Brand"
-                                    >
-                                        <Trash2 className="size-4" />
-                                    </button>
+                            return (
+                                <div
+                                    key={brandId}
+                                    className="bg-white border border-[#EAEAEA] hover:border-[#D4AF37]/50 rounded-2xl p-5 shadow-xs flex items-center justify-between transition-all group"
+                                >
+                                    {/* Left Side: Crown Icon + Text info */}
+                                    <div className="flex items-center gap-3.5 min-w-0">
+                                        <div className="size-12 rounded-full bg-[#FAF7F2] border border-[#F0EBE0] flex items-center justify-center shrink-0">
+                                            <CrownIcon />
+                                        </div>
+                                        <div className="truncate">
+                                            <h3 className="text-base font-bold text-[#171717] truncate">
+                                                {brand.name}
+                                            </h3>
+                                            <p className="text-xs font-bold text-[#D4AF37] mt-0.5">
+                                                {productCount} Products
+                                            </p>
+                                            <p className="text-[11px] text-[#888888] mt-0.5">
+                                                Created on{" "}
+                                                {formatBrandDate(brand.createdAt)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Right Side: Edit & Delete Action Buttons */}
+                                    <div className="flex items-center gap-2.5 shrink-0 ml-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleOpenEdit(brand)}
+                                            className="size-8 rounded-full flex items-center justify-center text-[#737373] hover:text-[#171717] hover:bg-[#F5F5F5] transition-colors cursor-pointer"
+                                            title="Edit Brand"
+                                        >
+                                            <Pen className="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setBrandToDelete(brand);
+                                                setIsDeleteModalOpen(true);
+                                            }}
+                                            className="size-8 rounded-full flex items-center justify-center text-[#EF4444] hover:bg-red-50 transition-colors cursor-pointer"
+                                            title="Delete Brand"
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {/* Bottom Count Indicator */}
                     <div className="text-xs text-[#737373] font-medium pt-2">
-                        Showing {filteredBrands.length} of {brands.length} Categories
+                        Showing {filteredBrands.length} of {brands.length} Brands
                     </div>
                 </div>
             )}
 
-            {/* Add Brand Modal (Screenshot 3) */}
+            {/* Add Brand Modal */}
             {isAddModalOpen && (
                 <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
                     <div
@@ -319,7 +435,7 @@ export const AdminBrands: React.FC = () => {
                             Create a new brand for organising products in your store.
                         </p>
 
-                        <form onSubmit={handleCreateBrand} className="space-y-5 text-left">
+                        <form onSubmit={handleCreateBrand} className="space-y-4 text-left">
                             <div>
                                 <label className="text-xs font-semibold text-[#171717] block mb-1.5">
                                     Brand Name
@@ -331,26 +447,49 @@ export const AdminBrands: React.FC = () => {
                                     value={brandNameInput}
                                     onChange={(e) => setBrandNameInput(e.target.value)}
                                     placeholder="Enter Brand Name"
-                                    className="w-full px-4 py-3 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors"
+                                    className="w-full px-4 py-2.5 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-semibold text-[#171717] block mb-1.5">
+                                    Description (Optional)
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={brandDescInput}
+                                    onChange={(e) => setBrandDescInput(e.target.value)}
+                                    placeholder="Enter brand description"
+                                    className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors resize-none"
                                 />
                             </div>
 
                             <div className="grid grid-cols-2 gap-3.5 pt-2">
                                 <button
                                     type="button"
+                                    disabled={isCreating}
                                     onClick={() => {
                                         setIsAddModalOpen(false);
                                         setBrandNameInput("");
+                                        setBrandDescInput("");
                                     }}
-                                    className="w-full border border-[#D5D5D5] bg-white hover:bg-[#FAF7F2] text-[#171717] font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
+                                    className="w-full border border-[#D5D5D5] bg-white hover:bg-[#FAF7F2] text-[#171717] font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+                                    disabled={isCreating}
+                                    className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    Add Brand
+                                    {isCreating ? (
+                                        <>
+                                            <Loader2 className="size-4 animate-spin" />
+                                            <span>Adding...</span>
+                                        </>
+                                    ) : (
+                                        <span>Add Brand</span>
+                                    )}
                                 </button>
                             </div>
                         </form>
@@ -377,7 +516,7 @@ export const AdminBrands: React.FC = () => {
                             Edit brand details
                         </p>
 
-                        <form onSubmit={handleSaveEdit} className="space-y-5 text-left">
+                        <form onSubmit={handleSaveEdit} className="space-y-4 text-left">
                             <div>
                                 <label className="text-xs font-semibold text-[#171717] block mb-1.5">
                                     Brand Name
@@ -389,26 +528,49 @@ export const AdminBrands: React.FC = () => {
                                     value={brandNameInput}
                                     onChange={(e) => setBrandNameInput(e.target.value)}
                                     placeholder="Enter Brand Name"
-                                    className="w-full px-4 py-3 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors"
+                                    className="w-full px-4 py-2.5 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-semibold text-[#171717] block mb-1.5">
+                                    Description (Optional)
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={brandDescInput}
+                                    onChange={(e) => setBrandDescInput(e.target.value)}
+                                    placeholder="Enter brand description"
+                                    className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors resize-none"
                                 />
                             </div>
 
                             <div className="grid grid-cols-2 gap-3.5 pt-2">
                                 <button
                                     type="button"
+                                    disabled={isUpdating}
                                     onClick={() => {
                                         setEditingBrand(null);
                                         setBrandNameInput("");
+                                        setBrandDescInput("");
                                     }}
-                                    className="w-full border border-[#D5D5D5] bg-white hover:bg-[#FAF7F2] text-[#171717] font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
+                                    className="w-full border border-[#D5D5D5] bg-white hover:bg-[#FAF7F2] text-[#171717] font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+                                    disabled={isUpdating}
+                                    className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    Save Changes
+                                    {isUpdating ? (
+                                        <>
+                                            <Loader2 className="size-4 animate-spin" />
+                                            <span>Saving...</span>
+                                        </>
+                                    ) : (
+                                        <span>Save Changes</span>
+                                    )}
                                 </button>
                             </div>
                         </form>
@@ -416,9 +578,10 @@ export const AdminBrands: React.FC = () => {
                 </div>
             )}
 
-            {/* Delete Brand Modal (Screenshot 4) */}
+            {/* Delete Brand Modal */}
             <CustomConfirmModal
                 isOpen={isDeleteModalOpen}
+                isLoading={isDeleting}
                 onClose={() => {
                     setIsDeleteModalOpen(false);
                     setBrandToDelete(null);

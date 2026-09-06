@@ -1,38 +1,46 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router";
-import { ArrowRight } from "lucide-react";
+import { useNavigate, useLocation } from "react-router";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useLogin } from "@/service/mutations";
 import { toast } from "@/components/ui/sonner";
 import { footerLogo, heroBg } from "@/lib/site_data";
 import { CustomInput } from "@/components/common/CustomInput";
 
 export const AdminLogin: React.FC = () => {
-    const [email, setEmail] = useState("admin@roseiyemporium.com");
-    const [password, setPassword] = useState("••••••••••••");
-    const [isLoading, setIsLoading] = useState(false);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
     const { login } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    const { mutate: loginAdmin, isPending } = useLogin();
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
 
-        setTimeout(() => {
-            // Allow login with any credentials for demo/development
-            const dummyToken = `admin-jwt-token-roseiy-${Date.now()}`;
-            const adminUser = {
-                id: "admin-1",
-                email: email.trim() || "admin@roseiyemporium.com",
-                firstName: "Roseiy",
-                lastName: "Bolanle",
-                role: "Super Administrator",
-            };
+        const trimmedEmail = email.trim();
+        if (!trimmedEmail || !password) {
+            toast.error("Please enter your email and password");
+            return;
+        }
 
-            login(dummyToken, adminUser);
-            toast.success("Welcome to Roseiy Emporium Admin Portal");
-            navigate("/", { replace: true });
-            setIsLoading(false);
-        }, 400);
+        loginAdmin(
+            { email: trimmedEmail, password },
+            {
+                onSuccess: (data) => {
+                    const token = data?.data?.token;
+                    const admin = data?.data?.admin;
+                    if (token) {
+                        login(token, admin);
+                    }
+                    const destination =
+                        (location.state as { from?: { pathname?: string } })
+                            ?.from?.pathname || "/";
+                    navigate(destination, { replace: true });
+                },
+            },
+        );
     };
 
     return (
@@ -60,7 +68,7 @@ export const AdminLogin: React.FC = () => {
                             Welcome Back
                         </h1>
                         <p className="text-xs sm:text-sm text-ivory-600 font-hanken mt-2">
-                            Enter any login details to access the admin portal
+                            Enter your admin credentials to access the portal
                         </p>
                     </div>
 
@@ -68,9 +76,9 @@ export const AdminLogin: React.FC = () => {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <CustomInput
                             name="email"
-                            type="text"
+                            type="email"
                             label="Email"
-                            placeholder="admin@roseiyemporium.com"
+                            placeholder="admin@yourdomain.com"
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
@@ -88,15 +96,20 @@ export const AdminLogin: React.FC = () => {
 
                         <button
                             type="submit"
-                            disabled={isLoading}
+                            disabled={isPending}
                             className="w-full mt-6 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#d4af37] hover:bg-[#e5c158] text-black font-semibold text-sm transition-all shadow-md cursor-pointer disabled:opacity-50"
                         >
-                            <span>
-                                {isLoading
-                                    ? "Signing in..."
-                                    : "Sign In to Portal"}
-                            </span>
-                            <ArrowRight className="size-4" />
+                            {isPending ? (
+                                <>
+                                    <Loader2 className="size-4 animate-spin" />
+                                    <span>Signing in...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span>Sign In to Portal</span>
+                                    <ArrowRight className="size-4" />
+                                </>
+                            )}
                         </button>
                     </form>
                 </div>

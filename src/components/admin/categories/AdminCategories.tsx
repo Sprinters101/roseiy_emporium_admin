@@ -1,27 +1,16 @@
 import React, { useState, useMemo } from "react";
-import { Plus, Search, Trash2, Pen } from "lucide-react";
+import { Plus, Search, Trash2, Pen, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { CustomConfirmModal } from "@/components/common/CustomConfirmModal";
 import { cn } from "@/lib/utils";
-
-export interface CategoryItem {
-    id: string;
-    name: string;
-    productCount: number;
-    createdAt: string;
-}
-
-const initialCategoriesData: CategoryItem[] = [
-    { id: "1", name: "Champagne", productCount: 48, createdAt: "27 July 2026" },
-    { id: "2", name: "Sweetwine", productCount: 48, createdAt: "27 July 2026" },
-    { id: "3", name: "Whiskey", productCount: 48, createdAt: "27 July 2026" },
-    { id: "4", name: "Cognac", productCount: 48, createdAt: "27 July 2026" },
-    { id: "5", name: "Tequila", productCount: 48, createdAt: "27 July 2026" },
-    { id: "6", name: "Rum", productCount: 48, createdAt: "27 July 2026" },
-    { id: "7", name: "Gin", productCount: 48, createdAt: "27 July 2026" },
-    { id: "8", name: "Drink Accessories", productCount: 48, createdAt: "27 July 2026" },
-];
+import { useGetAdminCategories } from "@/service/queries";
+import {
+    useCreateCategory,
+    useUpdateCategory,
+    useDeleteCategory,
+} from "@/service/mutations";
+import type { Category } from "@/service/types";
 
 const SORT_OPTIONS = [
     { label: "Sort By: A-Z", value: "az" },
@@ -29,6 +18,22 @@ const SORT_OPTIONS = [
     { label: "Sort By: Newest", value: "newest" },
     { label: "Sort By: Most Products", value: "products" },
 ];
+
+// Helper to format ISO date
+const formatCategoryDate = (dateStr?: string) => {
+    if (!dateStr) return "N/A";
+    try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        return date.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+        });
+    } catch {
+        return dateStr;
+    }
+};
 
 // Shopping Basket Icon matching screenshot design
 const BasketIcon = ({ className }: { className?: string }) => (
@@ -81,30 +86,76 @@ const EmptyBoxIllustration = () => (
 );
 
 export const AdminCategories: React.FC = () => {
-    const [categories, setCategories] = useState<CategoryItem[]>(initialCategoriesData);
+    // React Query API hooks
+    const {
+        data: categoriesResponse,
+        isLoading,
+        isError,
+        error,
+        refetch,
+    } = useGetAdminCategories();
+
+    const { mutate: createCategory, isPending: isCreating } =
+        useCreateCategory();
+    const { mutate: updateCategory, isPending: isUpdating } =
+        useUpdateCategory();
+    const { mutate: deleteCategory, isPending: isDeleting } =
+        useDeleteCategory();
+
     const [searchTerm, setSearchTerm] = useState("");
     const [sortBy, setSortBy] = useState("az");
 
     // Modal states
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null);
-    const [categoryToDelete, setCategoryToDelete] = useState<CategoryItem | null>(null);
+    const [editingCategory, setEditingCategory] = useState<Category | null>(
+        null,
+    );
+    const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(
+        null,
+    );
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     // Form field state
     const [categoryNameInput, setCategoryNameInput] = useState("");
+    const [categoryDescInput, setCategoryDescInput] = useState("");
+
+    // Normalized categories from API
+    const categories: Category[] = useMemo(() => {
+        const raw =
+            categoriesResponse?.data?.categories ||
+            (Array.isArray(categoriesResponse?.data)
+                ? categoriesResponse.data
+                : []);
+        return raw;
+    }, [categoriesResponse]);
 
     // Filtered & Sorted categories
     const filteredCategories = useMemo(() => {
         return categories
-            .filter((cat) =>
-                cat.name.toLowerCase().includes(searchTerm.trim().toLowerCase()),
-            )
+            .filter((cat) => {
+                const term = searchTerm.trim().toLowerCase();
+                if (!term) return true;
+                const nameMatch = cat.name?.toLowerCase().includes(term);
+                const descMatch = cat.description?.toLowerCase().includes(term);
+                return nameMatch || descMatch;
+            })
             .sort((a, b) => {
                 if (sortBy === "az") return a.name.localeCompare(b.name);
                 if (sortBy === "za") return b.name.localeCompare(a.name);
-                if (sortBy === "products") return b.productCount - a.productCount;
-                if (sortBy === "newest") return Number(b.id) - Number(a.id);
+                if (sortBy === "products") {
+                    const countA = (a as any).productCount ?? 0;
+                    const countB = (b as any).productCount ?? 0;
+                    return countB - countA;
+                }
+                if (sortBy === "newest") {
+                    const timeA = a.createdAt
+                        ? new Date(a.createdAt).getTime()
+                        : 0;
+                    const timeB = b.createdAt
+                        ? new Date(b.createdAt).getTime()
+                        : 0;
+                    return timeB - timeA;
+                }
                 return 0;
             });
     }, [categories, searchTerm, sortBy]);
@@ -112,52 +163,74 @@ export const AdminCategories: React.FC = () => {
     // Handle Create Category
     const handleCreateCategory = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!categoryNameInput.trim()) {
+        const trimmed = categoryNameInput.trim();
+        if (!trimmed) {
             toast.error("Please enter a valid category name");
             return;
         }
 
-        const newCategory: CategoryItem = {
-            id: String(Date.now()),
-            name: categoryNameInput.trim(),
-            productCount: 0,
-            createdAt: `${new Date().getDate()} ${new Date().toLocaleString("en-US", { month: "long" })} ${new Date().getFullYear()}`,
-        };
+        createCategory(
+            {
+                name: trimmed,
+                description: categoryDescInput.trim() || undefined,
+            },
+            {
+                onSuccess: () => {
+                    setIsAddModalOpen(false);
+                    setCategoryNameInput("");
+                    setCategoryDescInput("");
+                },
+            },
+        );
+    };
 
-        setCategories((prev) => [...prev, newCategory]);
-        toast.success(`Category "${newCategory.name}" created`);
-        setIsAddModalOpen(false);
-        setCategoryNameInput("");
+    // Open Edit Modal
+    const handleOpenEdit = (category: Category) => {
+        setEditingCategory(category);
+        setCategoryNameInput(category.name);
+        setCategoryDescInput(category.description || "");
     };
 
     // Handle Edit Category
     const handleSaveEdit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!categoryNameInput.trim() || !editingCategory) {
+        const trimmed = categoryNameInput.trim();
+        if (!trimmed || !editingCategory) {
             toast.error("Please enter a category name");
             return;
         }
 
-        setCategories((prev) =>
-            prev.map((cat) =>
-                cat.id === editingCategory.id
-                    ? { ...cat, name: categoryNameInput.trim() }
-                    : cat,
-            ),
+        const categoryId =
+            editingCategory.categoryId || (editingCategory as any).id;
+        updateCategory(
+            {
+                categoryId,
+                payload: {
+                    name: trimmed,
+                    description: categoryDescInput.trim() || undefined,
+                },
+            },
+            {
+                onSuccess: () => {
+                    setEditingCategory(null);
+                    setCategoryNameInput("");
+                    setCategoryDescInput("");
+                },
+            },
         );
-
-        toast.success(`Category updated to "${categoryNameInput.trim()}"`);
-        setEditingCategory(null);
-        setCategoryNameInput("");
     };
 
     // Handle Delete Category
     const handleConfirmDelete = () => {
         if (!categoryToDelete) return;
-        setCategories((prev) => prev.filter((cat) => cat.id !== categoryToDelete.id));
-        toast.success(`Category "${categoryToDelete.name}" deleted`);
-        setIsDeleteModalOpen(false);
-        setCategoryToDelete(null);
+        const categoryId =
+            categoryToDelete.categoryId || (categoryToDelete as any).id;
+        deleteCategory(categoryId, {
+            onSuccess: () => {
+                setIsDeleteModalOpen(false);
+                setCategoryToDelete(null);
+            },
+        });
     };
 
     const hasCategories = categories.length > 0;
@@ -170,13 +243,15 @@ export const AdminCategories: React.FC = () => {
                     <div className="flex items-center gap-1.5 text-xs text-[#737373] font-hanken mb-1">
                         <span>Dashboard</span>
                         <span>/</span>
-                        <span className="text-[#171717] font-semibold">Categories</span>
+                        <span className="text-[#171717] font-semibold">
+                            Categories
+                        </span>
                     </div>
                     <h1 className="text-2xl sm:text-3xl font-bold font-playfair text-[#171717]">
                         Categories
                     </h1>
                     <p className="text-xs sm:text-sm text-[#737373] font-hanken mt-1">
-                        Manage your product category
+                        Manage your product categories
                     </p>
                 </div>
 
@@ -186,6 +261,7 @@ export const AdminCategories: React.FC = () => {
                         type="button"
                         onClick={() => {
                             setCategoryNameInput("");
+                            setCategoryDescInput("");
                             setIsAddModalOpen(true);
                         }}
                         className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-[#D4AF37] text-white font-semibold text-xs sm:text-sm hover:bg-[#C5A265] transition-all shadow-xs cursor-pointer self-start sm:self-auto"
@@ -221,90 +297,152 @@ export const AdminCategories: React.FC = () => {
                 </div>
             </div>
 
-            {/* Main Content Area: Categories Grid OR Empty State */}
-            {!hasCategories || filteredCategories.length === 0 ? (
-                /* Empty State (Screenshot 1) */
+            {/* Main Content Area: Loading Skeleton, Error State, Empty State, or Grid */}
+            {isLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <div
+                            key={i}
+                            className="bg-white border border-[#EAEAEA] rounded-2xl p-5 shadow-xs flex items-center justify-between animate-pulse"
+                        >
+                            <div className="flex items-center gap-3.5 w-full">
+                                <div className="size-12 rounded-full bg-[#F0EBE0]/60 shrink-0" />
+                                <div className="space-y-2 flex-1">
+                                    <div className="h-4 bg-gray-200 rounded w-2/3" />
+                                    <div className="h-3 bg-gray-100 rounded w-1/3" />
+                                    <div className="h-2.5 bg-gray-100 rounded w-1/2" />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : isError ? (
+                <div className="py-16 flex flex-col items-center justify-center text-center bg-white border border-red-100 rounded-2xl p-8">
+                    <p className="text-sm font-semibold text-red-600 mb-1">
+                        Failed to load categories
+                    </p>
+                    <p className="text-xs text-[#737373] mb-4 max-w-sm">
+                        {(error as any)?.response?.data?.message ||
+                            (error as any)?.message ||
+                            "An error occurred while communicating with the server."}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => refetch()}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#D4AF37] text-white text-xs font-semibold hover:bg-[#C5A265] transition-colors cursor-pointer"
+                    >
+                        <RefreshCw className="size-3.5" />
+                        <span>Retry</span>
+                    </button>
+                </div>
+            ) : !hasCategories || filteredCategories.length === 0 ? (
+                /* Empty State */
                 <div className="py-24 sm:py-32 flex flex-col items-center justify-center text-center">
                     <EmptyBoxIllustration />
                     <h3 className="text-sm sm:text-base font-bold text-[#171717] mt-3">
-                        No categories added yet
+                        {searchTerm
+                            ? "No categories match your search"
+                            : "No categories added yet"}
                     </h3>
                     <button
                         type="button"
                         onClick={() => {
-                            setCategoryNameInput("");
-                            setIsAddModalOpen(true);
+                            if (searchTerm) {
+                                setSearchTerm("");
+                            } else {
+                                setCategoryNameInput("");
+                                setCategoryDescInput("");
+                                setIsAddModalOpen(true);
+                            }
                         }}
                         className="flex items-center gap-1.5 px-6 py-2.5 rounded-lg bg-[#D4AF37] text-white font-semibold text-xs sm:text-sm hover:bg-[#C5A265] transition-all shadow-xs cursor-pointer mt-4"
                     >
-                        <span>Add Category</span>
-                        <Plus className="size-4 text-white" />
+                        {searchTerm ? (
+                            <span>Clear Search</span>
+                        ) : (
+                            <>
+                                <span>Add Category</span>
+                                <Plus className="size-4 text-white" />
+                            </>
+                        )}
                     </button>
                 </div>
             ) : (
-                /* Categories 3-Column Grid (Screenshot 2) */
+                /* Categories 3-Column Grid */
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {filteredCategories.map((category) => (
-                            <div
-                                key={category.id}
-                                className="bg-white border border-[#EAEAEA] hover:border-[#D4AF37]/50 rounded-2xl p-5 shadow-xs flex items-center justify-between transition-all group"
-                            >
-                                {/* Left Side: Basket Icon + Text info */}
-                                <div className="flex items-center gap-3.5 min-w-0">
-                                    <div className="size-12 rounded-full bg-[#FAF7F2] border border-[#F0EBE0] flex items-center justify-center shrink-0">
-                                        <BasketIcon />
-                                    </div>
-                                    <div className="truncate">
-                                        <h3 className="text-base font-bold text-[#171717] truncate">
-                                            {category.name}
-                                        </h3>
-                                        <p className="text-xs font-bold text-[#D4AF37] mt-0.5">
-                                            {category.productCount} Products
-                                        </p>
-                                        <p className="text-[11px] text-[#888888] mt-0.5">
-                                            Created on {category.createdAt}
-                                        </p>
-                                    </div>
-                                </div>
+                        {filteredCategories.map((category) => {
+                            const categoryId =
+                                category.categoryId || (category as any).id;
+                            const productCount =
+                                (category as any).productCount ??
+                                (category as any).productsCount ??
+                                0;
 
-                                {/* Right Side: Edit & Delete Action Buttons */}
-                                <div className="flex items-center gap-2.5 shrink-0 ml-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setEditingCategory(category);
-                                            setCategoryNameInput(category.name);
-                                        }}
-                                        className="size-8 rounded-full flex items-center justify-center text-[#737373] hover:text-[#171717] hover:bg-[#F5F5F5] transition-colors cursor-pointer"
-                                        title="Edit Category"
-                                    >
-                                        <Pen className="size-4" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setCategoryToDelete(category);
-                                            setIsDeleteModalOpen(true);
-                                        }}
-                                        className="size-8 rounded-full flex items-center justify-center text-[#EF4444] hover:bg-red-50 transition-colors cursor-pointer"
-                                        title="Delete Category"
-                                    >
-                                        <Trash2 className="size-4" />
-                                    </button>
+                            return (
+                                <div
+                                    key={categoryId}
+                                    className="bg-white border border-[#EAEAEA] hover:border-[#D4AF37]/50 rounded-2xl p-5 shadow-xs flex items-center justify-between transition-all group"
+                                >
+                                    {/* Left Side: Basket Icon + Text info */}
+                                    <div className="flex items-center gap-3.5 min-w-0">
+                                        <div className="size-12 rounded-full bg-[#FAF7F2] border border-[#F0EBE0] flex items-center justify-center shrink-0">
+                                            <BasketIcon />
+                                        </div>
+                                        <div className="truncate">
+                                            <h3 className="text-base font-bold text-[#171717] truncate">
+                                                {category.name}
+                                            </h3>
+                                            <p className="text-xs font-bold text-[#D4AF37] mt-0.5">
+                                                {productCount} Products
+                                            </p>
+                                            <p className="text-[11px] text-[#888888] mt-0.5">
+                                                Created on{" "}
+                                                {formatCategoryDate(
+                                                    category.createdAt,
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Right Side: Edit & Delete Action Buttons */}
+                                    <div className="flex items-center gap-2.5 shrink-0 ml-3">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                handleOpenEdit(category)
+                                            }
+                                            className="size-8 rounded-full flex items-center justify-center text-[#737373] hover:text-[#171717] hover:bg-[#F5F5F5] transition-colors cursor-pointer"
+                                            title="Edit Category"
+                                        >
+                                            <Pen className="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setCategoryToDelete(category);
+                                                setIsDeleteModalOpen(true);
+                                            }}
+                                            className="size-8 rounded-full flex items-center justify-center text-[#EF4444] hover:bg-red-50 transition-colors cursor-pointer"
+                                            title="Delete Category"
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {/* Bottom Count Indicator */}
                     <div className="text-xs text-[#737373] font-medium pt-2">
-                        Showing {filteredCategories.length} of {categories.length} Categories
+                        Showing {filteredCategories.length} of{" "}
+                        {categories.length} Categories
                     </div>
                 </div>
             )}
 
-            {/* Add Category Modal (Screenshot 3) */}
+            {/* Add Category Modal */}
             {isAddModalOpen && (
                 <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
                     <div
@@ -320,10 +458,14 @@ export const AdminCategories: React.FC = () => {
                             Add Category
                         </h3>
                         <p className="text-xs sm:text-sm text-[#737373] mt-1.5 mb-5 max-w-xs mx-auto leading-relaxed">
-                            Create a new category for organising products in your store.
+                            Create a new category for organising products in
+                            your store.
                         </p>
 
-                        <form onSubmit={handleCreateCategory} className="space-y-5 text-left">
+                        <form
+                            onSubmit={handleCreateCategory}
+                            className="space-y-4 text-left"
+                        >
                             <div>
                                 <label className="text-xs font-semibold text-[#171717] block mb-1.5">
                                     Category Name
@@ -333,28 +475,55 @@ export const AdminCategories: React.FC = () => {
                                     required
                                     autoFocus
                                     value={categoryNameInput}
-                                    onChange={(e) => setCategoryNameInput(e.target.value)}
+                                    onChange={(e) =>
+                                        setCategoryNameInput(e.target.value)
+                                    }
                                     placeholder="Enter Category Name"
-                                    className="w-full px-4 py-3 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors"
+                                    className="w-full px-4 py-2.5 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-semibold text-[#171717] block mb-1.5">
+                                    Description (Optional)
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={categoryDescInput}
+                                    onChange={(e) =>
+                                        setCategoryDescInput(e.target.value)
+                                    }
+                                    placeholder="Enter category description"
+                                    className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors resize-none"
                                 />
                             </div>
 
                             <div className="grid grid-cols-2 gap-3.5 pt-2">
                                 <button
                                     type="button"
+                                    disabled={isCreating}
                                     onClick={() => {
                                         setIsAddModalOpen(false);
                                         setCategoryNameInput("");
+                                        setCategoryDescInput("");
                                     }}
-                                    className="w-full border border-[#D5D5D5] bg-white hover:bg-[#FAF7F2] text-[#171717] font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
+                                    className="w-full border border-[#D5D5D5] bg-white hover:bg-[#FAF7F2] text-[#171717] font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+                                    disabled={isCreating}
+                                    className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    Add Category
+                                    {isCreating ? (
+                                        <>
+                                            <Loader2 className="size-4 animate-spin" />
+                                            <span>Adding...</span>
+                                        </>
+                                    ) : (
+                                        <span>Add Category</span>
+                                    )}
                                 </button>
                             </div>
                         </form>
@@ -362,7 +531,7 @@ export const AdminCategories: React.FC = () => {
                 </div>
             )}
 
-            {/* Edit Category Modal (Screenshot 4) */}
+            {/* Edit Category Modal */}
             {editingCategory && (
                 <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
                     <div
@@ -381,7 +550,10 @@ export const AdminCategories: React.FC = () => {
                             Edit category details
                         </p>
 
-                        <form onSubmit={handleSaveEdit} className="space-y-5 text-left">
+                        <form
+                            onSubmit={handleSaveEdit}
+                            className="space-y-4 text-left"
+                        >
                             <div>
                                 <label className="text-xs font-semibold text-[#171717] block mb-1.5">
                                     Category Name
@@ -391,28 +563,55 @@ export const AdminCategories: React.FC = () => {
                                     required
                                     autoFocus
                                     value={categoryNameInput}
-                                    onChange={(e) => setCategoryNameInput(e.target.value)}
+                                    onChange={(e) =>
+                                        setCategoryNameInput(e.target.value)
+                                    }
                                     placeholder="Enter Category Name"
-                                    className="w-full px-4 py-3 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors"
+                                    className="w-full px-4 py-2.5 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-semibold text-[#171717] block mb-1.5">
+                                    Description (Optional)
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={categoryDescInput}
+                                    onChange={(e) =>
+                                        setCategoryDescInput(e.target.value)
+                                    }
+                                    placeholder="Enter category description"
+                                    className="w-full px-4 py-2 text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] placeholder:text-[#AAAAAA] text-[#171717] transition-colors resize-none"
                                 />
                             </div>
 
                             <div className="grid grid-cols-2 gap-3.5 pt-2">
                                 <button
                                     type="button"
+                                    disabled={isUpdating}
                                     onClick={() => {
                                         setEditingCategory(null);
                                         setCategoryNameInput("");
+                                        setCategoryDescInput("");
                                     }}
-                                    className="w-full border border-[#D5D5D5] bg-white hover:bg-[#FAF7F2] text-[#171717] font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
+                                    className="w-full border border-[#D5D5D5] bg-white hover:bg-[#FAF7F2] text-[#171717] font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+                                    disabled={isUpdating}
+                                    className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    Save Changes
+                                    {isUpdating ? (
+                                        <>
+                                            <Loader2 className="size-4 animate-spin" />
+                                            <span>Saving...</span>
+                                        </>
+                                    ) : (
+                                        <span>Save Changes</span>
+                                    )}
                                 </button>
                             </div>
                         </form>
@@ -420,9 +619,10 @@ export const AdminCategories: React.FC = () => {
                 </div>
             )}
 
-            {/* Delete Category Modal (Screenshot 5) */}
+            {/* Delete Category Modal */}
             <CustomConfirmModal
                 isOpen={isDeleteModalOpen}
+                isLoading={isDeleting}
                 onClose={() => {
                     setIsDeleteModalOpen(false);
                     setCategoryToDelete(null);
