@@ -5,6 +5,7 @@ import {
     ChevronRight,
     Calendar,
     ChevronDown,
+    RefreshCw,
 } from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "@/components/ui/sonner";
@@ -14,13 +15,11 @@ import {
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-    getOrders,
-    subscribeOrders,
-    type OrderRecord,
-    type OrderCategory,
-} from "@/lib/orders_data";
 import { cn } from "@/lib/utils";
+import { useGetAdminOrders } from "@/service/queries";
+import type { AdminOrderDetail, GetOrdersParams } from "@/service/types";
+
+export type OrderCategory = "ongoing" | "completed" | "failed";
 
 const PROGRESS_OPTIONS = [
     { label: "All Progress", value: "all" },
@@ -145,7 +144,8 @@ const EmptySadBoxIllustration = () => (
 );
 
 // Format date into "07 February 2025"
-const formatDateDisplay = (date: Date) => {
+const formatDateDisplay = (date: Date | null) => {
+    if (!date || isNaN(date.getTime())) return "-";
     const day = String(date.getDate()).padStart(2, "0");
     const month = date.toLocaleString("en-US", { month: "long" });
     const year = date.getFullYear();
@@ -169,17 +169,21 @@ const InteractiveDateRangeDropdown = ({
     fromDate,
     toDate,
     onRangeChange,
+    onReset,
 }: {
-    fromDate: Date;
-    toDate: Date;
+    fromDate: Date | null;
+    toDate: Date | null;
     onRangeChange: (from: Date, to: Date) => void;
+    onReset?: () => void;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [activeTarget, setActiveTarget] = useState<"from" | "to">("from");
-    const [tempFrom, setTempFrom] = useState<Date>(fromDate);
-    const [tempTo, setTempTo] = useState<Date>(toDate);
+    const [tempFrom, setTempFrom] = useState<Date | null>(fromDate);
+    const [tempTo, setTempTo] = useState<Date | null>(toDate);
     const [viewMonth, setViewMonth] = useState<Date>(
-        new Date(fromDate.getFullYear(), fromDate.getMonth(), 1),
+        fromDate
+            ? new Date(fromDate.getFullYear(), fromDate.getMonth(), 1)
+            : new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     );
 
     // Sync when dropdown opens
@@ -187,7 +191,16 @@ const InteractiveDateRangeDropdown = ({
         if (isOpen) {
             setTempFrom(fromDate);
             setTempTo(toDate);
-            setViewMonth(new Date(fromDate.getFullYear(), fromDate.getMonth(), 1));
+            setViewMonth(
+                fromDate
+                    ? new Date(fromDate.getFullYear(), fromDate.getMonth(), 1)
+                    : new Date(
+                          new Date().getFullYear(),
+                          new Date().getMonth(),
+                          1,
+                      ),
+            );
+            setActiveTarget(fromDate ? "to" : "from");
         }
     }, [isOpen, fromDate, toDate]);
 
@@ -231,14 +244,14 @@ const InteractiveDateRangeDropdown = ({
     const handleDateSelect = (selectedDate: Date) => {
         if (activeTarget === "from") {
             setTempFrom(selectedDate);
-            // If new from is after tempTo, adjust tempTo
-            if (selectedDate > tempTo) {
-                setTempTo(new Date(selectedDate.getTime() + 86400000 * 365));
+            if (tempTo && selectedDate > tempTo) {
+                setTempTo(null);
             }
             setActiveTarget("to");
         } else {
-            if (selectedDate < tempFrom) {
+            if (tempFrom && selectedDate < tempFrom) {
                 setTempFrom(selectedDate);
+                setActiveTarget("to");
             } else {
                 setTempTo(selectedDate);
             }
@@ -246,196 +259,174 @@ const InteractiveDateRangeDropdown = ({
     };
 
     const handleApply = () => {
-        onRangeChange(tempFrom, tempTo);
-        setIsOpen(false);
-        toast.success(
-            `Date range applied: ${formatDateDisplay(tempFrom)} - ${formatDateDisplay(tempTo)}`,
-        );
+        if (tempFrom && tempTo) {
+            onRangeChange(tempFrom, tempTo);
+            setIsOpen(false);
+        } else if (tempFrom) {
+            onRangeChange(tempFrom, tempFrom);
+            setIsOpen(false);
+        } else {
+            setIsOpen(false);
+        }
     };
 
     const handleReset = () => {
-        const defaultFrom = new Date(2025, 1, 7); // 07 Feb 2025
-        const defaultTo = new Date(2026, 1, 7); // 07 Feb 2026
-        setTempFrom(defaultFrom);
-        setTempTo(defaultTo);
-        onRangeChange(defaultFrom, defaultTo);
-        setViewMonth(new Date(2025, 1, 1));
-        toast.info("Date range reset");
+        setTempFrom(null);
+        setTempTo(null);
+        if (onReset) {
+            onReset();
+        }
+        setIsOpen(false);
     };
+
+    const monthYearTitle = viewMonth.toLocaleString("en-US", {
+        month: "long",
+        year: "numeric",
+    });
 
     return (
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-            <DropdownMenuTrigger className="group relative flex w-full items-center justify-between gap-2 rounded-lg px-4 py-2.5 text-xs sm:text-sm font-hanken outline-none cursor-pointer transition-colors border border-[#E5E5E5] bg-white text-[#171717] hover:border-[#D4AF37] focus:border-[#D4AF37] data-[state=open]:border-[#D4AF37]">
-                <span className="truncate">Date Range</span>
-                <ChevronDown className="size-4 shrink-0 transition-transform duration-200 pointer-events-none group-data-[state=open]:rotate-180 text-[#171717]" />
+            <DropdownMenuTrigger className="flex items-center justify-between gap-2.5 px-4 py-2.5 bg-white border border-[#E5E5E5] hover:border-[#D4AF37] focus:border-[#D4AF37] data-[state=open]:border-[#D4AF37] rounded-lg text-xs sm:text-sm font-semibold text-[#171717] transition-all cursor-pointer shadow-2xs w-full min-w-44 outline-none">
+                <div className="flex items-center gap-2 truncate">
+                    <Calendar className="size-4 text-[#737373] shrink-0" />
+                    <span className="truncate">
+                        {fromDate && toDate
+                            ? `${formatDateDisplay(fromDate)} - ${formatDateDisplay(toDate)}`
+                            : "Date Range"}
+                    </span>
+                </div>
+                <ChevronDown className="size-4 text-[#737373] shrink-0 transition-transform duration-200" />
             </DropdownMenuTrigger>
 
             <DropdownMenuContent
                 align="end"
-                sideOffset={6}
-                className="z-50 w-72 sm:w-80 rounded-2xl p-4 shadow-2xl font-hanken border border-[#EAEAEA] bg-white text-[#171717] animate-scaleUp"
+                className="w-80 p-4 bg-white border border-[#EAEAEA] rounded-2xl shadow-xl z-50 animate-in fade-in-50 zoom-in-95"
             >
-                {/* From & To Cards Matching Screenshot 5 */}
-                <div className="space-y-3 mb-4">
-                    <div>
-                        <label className="text-xs font-semibold text-[#171717] block mb-1">
-                            From
-                        </label>
-                        <div
-                            onClick={() => {
-                                setActiveTarget("from");
-                                setViewMonth(
-                                    new Date(
-                                        tempFrom.getFullYear(),
-                                        tempFrom.getMonth(),
-                                        1,
-                                    ),
-                                );
-                            }}
-                            className={cn(
-                                "flex items-center border rounded-lg px-3 py-2 bg-white transition-all cursor-pointer",
-                                activeTarget === "from"
-                                    ? "border-[#D4AF37] ring-1 ring-[#D4AF37]/30 bg-[#FAF7F2]/40"
-                                    : "border-[#E5E5E5] hover:border-[#D5D5D5]",
-                            )}
-                        >
-                            <Calendar className="size-4 text-[#888888] shrink-0" />
-                            <span className="text-[#D5D5D5] mx-2 select-none">|</span>
-                            <span className="text-xs font-semibold text-[#171717]">
-                                {formatDateDisplay(tempFrom)}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="text-xs font-semibold text-[#171717] block mb-1">
-                            To
-                        </label>
-                        <div
-                            onClick={() => {
-                                setActiveTarget("to");
-                                setViewMonth(
-                                    new Date(
-                                        tempTo.getFullYear(),
-                                        tempTo.getMonth(),
-                                        1,
-                                    ),
-                                );
-                            }}
-                            className={cn(
-                                "flex items-center border rounded-lg px-3 py-2 bg-white transition-all cursor-pointer",
-                                activeTarget === "to"
-                                    ? "border-[#D4AF37] ring-1 ring-[#D4AF37]/30 bg-[#FAF7F2]/40"
-                                    : "border-[#E5E5E5] hover:border-[#D5D5D5]",
-                            )}
-                        >
-                            <Calendar className="size-4 text-[#888888] shrink-0" />
-                            <span className="text-[#D5D5D5] mx-2 select-none">|</span>
-                            <span className="text-xs font-semibold text-[#171717]">
-                                {formatDateDisplay(tempTo)}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Calendar View Area */}
-                <div className="pt-3 border-t border-[#F0F0F0]">
-                    {/* Month / Year Navigator */}
-                    <div className="flex items-center justify-between mb-3">
+                <div className="space-y-4">
+                    {/* Header Range summary */}
+                    <div className="flex items-center justify-between border-b border-[#F0F0F0] pb-3">
                         <span className="text-xs font-bold text-[#171717]">
-                            {viewMonth.toLocaleString("en-US", {
-                                month: "long",
-                                year: "numeric",
-                            })}
+                            Filter by Date Range
                         </span>
-                        <div className="flex items-center gap-1">
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setViewMonth(
-                                        new Date(
-                                            viewMonth.getFullYear(),
-                                            viewMonth.getMonth() - 1,
-                                            1,
-                                        ),
-                                    )
-                                }
-                                className="p-1 rounded-md hover:bg-[#FAF7F2] text-[#737373] hover:text-[#171717] transition-colors cursor-pointer"
-                                aria-label="Previous Month"
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#737373]">
+                            <span
+                                onClick={() => setActiveTarget("from")}
+                                className={cn(
+                                    "px-2 py-0.5 rounded cursor-pointer transition-colors",
+                                    activeTarget === "from"
+                                        ? "bg-[#FAF7F2] text-[#D4AF37] border border-[#D4AF37]"
+                                        : "hover:text-[#171717]",
+                                )}
                             >
-                                <ChevronLeft className="size-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setViewMonth(
-                                        new Date(
-                                            viewMonth.getFullYear(),
-                                            viewMonth.getMonth() + 1,
-                                            1,
-                                        ),
-                                    )
-                                }
-                                className="p-1 rounded-md hover:bg-[#FAF7F2] text-[#737373] hover:text-[#171717] transition-colors cursor-pointer"
-                                aria-label="Next Month"
+                                {tempFrom
+                                    ? formatDateDisplay(tempFrom)
+                                    : "From"}
+                            </span>
+                            <span>→</span>
+                            <span
+                                onClick={() => setActiveTarget("to")}
+                                className={cn(
+                                    "px-2 py-0.5 rounded cursor-pointer transition-colors",
+                                    activeTarget === "to"
+                                        ? "bg-[#FAF7F2] text-[#D4AF37] border border-[#D4AF37]"
+                                        : "hover:text-[#171717]",
+                                )}
                             >
-                                <ChevronRight className="size-4" />
-                            </button>
+                                {tempTo ? formatDateDisplay(tempTo) : "To"}
+                            </span>
                         </div>
                     </div>
 
-                    {/* Day Headers */}
-                    <div className="grid grid-cols-7 gap-1 text-center mb-1.5">
-                        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+                    {/* Month Navigator */}
+                    <div className="flex items-center justify-between">
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setViewMonth(
+                                    new Date(
+                                        viewMonth.getFullYear(),
+                                        viewMonth.getMonth() - 1,
+                                        1,
+                                    ),
+                                )
+                            }
+                            className="p-1 rounded-md text-[#737373] hover:text-[#171717] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+                        >
+                            <ChevronLeft className="size-4" />
+                        </button>
+                        <span className="text-xs font-bold text-[#171717]">
+                            {monthYearTitle}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setViewMonth(
+                                    new Date(
+                                        viewMonth.getFullYear(),
+                                        viewMonth.getMonth() + 1,
+                                        1,
+                                    ),
+                                )
+                            }
+                            className="p-1 rounded-md text-[#737373] hover:text-[#171717] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+                        >
+                            <ChevronRight className="size-4" />
+                        </button>
+                    </div>
+
+                    {/* Calendar Day Labels */}
+                    <div className="grid grid-cols-7 gap-1 text-center">
+                        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
                             <span
-                                key={day}
-                                className="text-[11px] font-semibold text-[#888888]"
+                                key={d}
+                                className="text-[10px] font-bold text-[#A0A0A0] py-1"
                             >
-                                {day}
+                                {d}
                             </span>
                         ))}
                     </div>
 
-                    {/* Date Days Grid */}
+                    {/* Calendar Day Grid */}
                     <div className="grid grid-cols-7 gap-1">
-                        {calendarDays.map((item, idx) => {
-                            const isSelectedFrom = isSameDay(item.date, tempFrom);
-                            const isSelectedTo = isSameDay(item.date, tempTo);
-                            const inRange = isBetween(
-                                item.date,
-                                tempFrom,
-                                tempTo,
-                            );
+                        {calendarDays.map(({ date, currentMonth }, idx) => {
+                            const isStart = tempFrom
+                                ? isSameDay(date, tempFrom)
+                                : false;
+                            const isEnd = tempTo
+                                ? isSameDay(date, tempTo)
+                                : false;
+                            const inRange =
+                                tempFrom && tempTo
+                                    ? isBetween(date, tempFrom, tempTo)
+                                    : false;
+                            const isSelected = isStart || isEnd;
 
                             return (
                                 <button
                                     key={idx}
                                     type="button"
-                                    onClick={() => handleDateSelect(item.date)}
+                                    onClick={() => handleDateSelect(date)}
                                     className={cn(
-                                        "size-8 rounded-full text-xs flex items-center justify-center transition-all cursor-pointer font-medium",
-                                        !item.currentMonth && "text-[#CCCCCC]",
-                                        item.currentMonth && "text-[#171717]",
-                                        (isSelectedFrom || isSelectedTo) &&
-                                            "bg-[#D4AF37] text-white font-bold shadow-xs hover:bg-[#C5A265]",
-                                        inRange &&
-                                            !isSelectedFrom &&
-                                            !isSelectedTo &&
-                                            "bg-[#FAF7F2] text-[#D4AF37] font-semibold",
-                                        !isSelectedFrom &&
-                                            !isSelectedTo &&
+                                        "size-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-all cursor-pointer",
+                                        !currentMonth && "text-[#CCCCCC]",
+                                        currentMonth &&
+                                            !isSelected &&
                                             !inRange &&
-                                            "hover:bg-[#FAF7F2] hover:text-[#D4AF37]",
+                                            "text-[#171717] hover:bg-[#FAF7F2]",
+                                        inRange &&
+                                            "bg-[#FAF7F2] text-[#D4AF37] rounded-none",
+                                        isSelected &&
+                                            "bg-[#D4AF37] text-white font-bold shadow-2xs",
                                     )}
                                 >
-                                    {item.date.getDate()}
+                                    {date.getDate()}
                                 </button>
                             );
                         })}
                     </div>
 
-                    {/* Footer Actions */}
-                    <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#F0F0F0]">
+                    {/* Actions */}
+                    <div className="flex items-center justify-between border-t border-[#F0F0F0] pt-3">
                         <button
                             type="button"
                             onClick={handleReset}
@@ -458,87 +449,155 @@ const InteractiveDateRangeDropdown = ({
 };
 
 export const AdminOrders: React.FC = () => {
-    const [orders, setOrders] = useState<OrderRecord[]>(getOrders());
     const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [progressFilter, setProgressFilter] = useState("all");
-    const [fromDate, setFromDate] = useState<Date>(new Date(2025, 1, 7)); // 07 Feb 2025
-    const [toDate, setToDate] = useState<Date>(new Date(2026, 1, 7)); // 07 Feb 2026
+    const [fromDate, setFromDate] = useState<Date | null>(null);
+    const [toDate, setToDate] = useState<Date | null>(null);
     const [sortBy, setSortBy] = useState("newest");
     const [statusTab, setStatusTab] = useState<OrderCategory>("ongoing");
     const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
 
-    // Sync with central orders data store
+    // Debounce search
     useEffect(() => {
-        const unsubscribe = subscribeOrders(() => {
-            setOrders([...getOrders()]);
-        });
-        return unsubscribe;
-    }, []);
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setCurrentPage(1);
+        }, 350);
+        return () => clearTimeout(handler);
+    }, [searchTerm]);
 
-    // Summary counts matching screenshots
-    const counts = useMemo(() => {
-        return {
-            ongoing: 92,
-            completed: 286,
-            failed: 12,
+    const handleStatusTabChange = (tab: OrderCategory) => {
+        setStatusTab(tab);
+        setCurrentPage(1);
+    };
+
+    // Query params for backend
+    const queryParams: GetOrdersParams = useMemo(() => {
+        const p: GetOrdersParams = {
+            page: currentPage,
+            limit: pageSize,
         };
-    }, []);
+        if (debouncedSearch.trim()) {
+            p.search = debouncedSearch.trim();
+        }
+        if (statusTab === "completed") {
+            p.status = "delivered";
+        } else if (statusTab === "failed") {
+            p.status = "cancelled";
+        } else if (statusTab === "ongoing") {
+            if (progressFilter === "InTransit") {
+                p.status = "shipped";
+                return;
+            } else if (progressFilter === "Order Confirmed") {
+                p.status = "processing";
+                return;
+            }
+            p.status = "processing";
+        }
+        return p;
+    }, [currentPage, pageSize, debouncedSearch, statusTab, progressFilter]);
 
-    // Filtered & Sorted orders
-    const filteredOrders = useMemo(() => {
-        return orders
-            .filter((order) => {
-                const matchesTab = order.category === statusTab;
-                const matchesProgress =
-                    progressFilter === "all" ||
-                    order.progress === progressFilter ||
-                    (progressFilter === "Order Confirmed" &&
-                        order.progress === "Order Confirmed") ||
-                    (progressFilter === "InTransit" &&
-                        order.progress === "InTransit");
-                const matchesSearch =
-                    order.orderNumber
-                        .toLowerCase()
-                        .includes(searchTerm.trim().toLowerCase()) ||
-                    order.customerName
-                        .toLowerCase()
-                        .includes(searchTerm.trim().toLowerCase()) ||
-                    order.amount
-                        .toString()
-                        .includes(searchTerm.trim().replace(/[^0-9]/g, ""));
-                return matchesTab && matchesProgress && matchesSearch;
-            })
-            .sort((a, b) => {
-                if (sortBy === "az")
-                    return a.customerName.localeCompare(b.customerName);
-                if (sortBy === "most") return b.items.length - a.items.length;
-                if (sortBy === "least") return a.items.length - b.items.length;
-                if (sortBy === "newest")
-                    return (
-                        Number(b.id.replace(/[^0-9]/g, "") || 0) -
-                        Number(a.id.replace(/[^0-9]/g, "") || 0)
-                    );
-                return 0;
-            });
-    }, [orders, statusTab, progressFilter, searchTerm, sortBy]);
+    const {
+        data: ordersResponse,
+        isLoading,
+        isError,
+        error,
+        refetch,
+    } = useGetAdminOrders(queryParams);
 
-    // Total count for current tab
-    const totalCurrentCount = useMemo(() => {
-        if (statusTab === "ongoing") return counts.ongoing;
-        if (statusTab === "completed") return counts.completed;
-        if (statusTab === "failed") return filteredOrders.length;
-        return filteredOrders.length;
-    }, [statusTab, counts, filteredOrders.length]);
+    const apiOrders: AdminOrderDetail[] = ordersResponse?.data?.orders || [];
+    const pagination = ordersResponse?.data?.pagination;
+    const totalPages = pagination?.totalPages || 1;
+
+    // Filter by tab on client-side if status was not restricted on backend
+    const tabFilteredOrders = useMemo(() => {
+        return apiOrders.filter((order) => {
+            const status = (order.status || "").toLowerCase();
+            if (statusTab === "ongoing") {
+                if (progressFilter === "InTransit") return status === "shipped";
+                if (progressFilter === "Order Confirmed")
+                    return status === "processing";
+                return status === "processing" || status === "shipped";
+            }
+            if (statusTab === "completed") {
+                return status === "delivered";
+            }
+            if (statusTab === "failed") {
+                return status === "cancelled" || status === "failed";
+            }
+
+            // Apply date filtering only if admin selected a range
+            if (fromDate && toDate) {
+                const orderDate = new Date(order.createdAt);
+                const startOfDay = new Date(
+                    fromDate.getFullYear(),
+                    fromDate.getMonth(),
+                    fromDate.getDate(),
+                    0,
+                    0,
+                    0,
+                    0,
+                );
+                const endOfDay = new Date(
+                    toDate.getFullYear(),
+                    toDate.getMonth(),
+                    toDate.getDate(),
+                    23,
+                    59,
+                    59,
+                    999,
+                );
+                if (orderDate < startOfDay || orderDate > endOfDay) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }, [apiOrders, statusTab, progressFilter, fromDate, toDate]);
+
+    // Apply sorting
+    const sortedOrders = useMemo(() => {
+        return [...tabFilteredOrders].sort((a, b) => {
+            const nameA =
+                `${a.customer?.firstName || ""} ${a.customer?.lastName || ""}`.trim();
+            const nameB =
+                `${b.customer?.firstName || ""} ${b.customer?.lastName || ""}`.trim();
+            if (sortBy === "az") return nameA.localeCompare(nameB);
+            if (sortBy === "most")
+                return (b.items?.length || 0) - (a.items?.length || 0);
+            if (sortBy === "least")
+                return (a.items?.length || 0) - (b.items?.length || 0);
+            if (sortBy === "newest") {
+                return (
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime()
+                );
+            }
+            return 0;
+        });
+    }, [tabFilteredOrders, sortBy]);
+
+    const totalCurrentCount = sortedOrders.length;
 
     // Export handlers
     const handleExport = (type: "csv" | "doc" | "pdf") => {
+        if (sortedOrders.length === 0) {
+            toast.error("No orders to export");
+            return;
+        }
+
         if (type === "csv") {
             const headers = "S/N,Order ID,Customer Name,Amount,Status,Date\n";
-            const rows = filteredOrders
-                .map(
-                    (o, idx) =>
-                        `"${idx + 1}","Order #${o.orderNumber}","${o.customerName}","₦${o.amount.toLocaleString()}","${o.progress}","${o.date}"`,
-                )
+            const rows = sortedOrders
+                .map((o, idx) => {
+                    const cName = o.customer
+                        ? `${o.customer.firstName} ${o.customer.lastName}`.trim()
+                        : "Customer";
+                    return `"${idx + 1}","Order #${o.orderNumber}","${cName}","₦${Number(o.total || 0).toLocaleString()}","${o.status}","${formatDateDisplay(new Date(o.createdAt))}"`;
+                })
                 .join("\n");
             const blob = new Blob([headers + rows], { type: "text/csv" });
             const url = window.URL.createObjectURL(blob);
@@ -548,16 +607,21 @@ export const AdminOrders: React.FC = () => {
             a.click();
             window.URL.revokeObjectURL(url);
             toast.success("Orders exported as CSV successfully");
+        } else if (type === "pdf") {
+            window.print();
+            toast.info(
+                `Preparing print / PDF for ${sortedOrders.length} orders`,
+            );
         } else {
-            toast.success(`Orders exported as ${type.toUpperCase()} successfully`);
+            toast.success(
+                `Orders exported as ${type.toUpperCase()} successfully`,
+            );
         }
     };
 
-    const renderProgressBadge = (
-        progress: OrderRecord["progress"],
-        category: OrderCategory,
-    ) => {
-        if (category === "completed" || progress === "Delivered") {
+    const renderProgressBadge = (status: string) => {
+        const s = (status || "").toLowerCase();
+        if (s === "delivered") {
             return (
                 <div className="flex items-center gap-1.5">
                     <span className="size-2 rounded-full bg-[#10B981]" />
@@ -567,7 +631,7 @@ export const AdminOrders: React.FC = () => {
                 </div>
             );
         }
-        if (category === "failed" || progress === "Failed") {
+        if (s === "cancelled" || s === "failed") {
             return (
                 <div className="flex items-center gap-1.5">
                     <span className="size-2 rounded-full bg-[#EF4444]" />
@@ -577,7 +641,7 @@ export const AdminOrders: React.FC = () => {
                 </div>
             );
         }
-        if (progress === "InTransit") {
+        if (s === "shipped" || s === "intransit") {
             return (
                 <div className="flex items-center gap-1.5">
                     <span className="size-2 rounded-full bg-[#D4AF37]" />
@@ -597,7 +661,21 @@ export const AdminOrders: React.FC = () => {
         );
     };
 
-    const hasOrders = orders.length > 0;
+    const hasOrders = sortedOrders.length > 0;
+
+    // Helper to generate pagination numbers
+    const pageNumbers = useMemo(() => {
+        const pages: number[] = [];
+        const maxVisible = 7;
+        if (totalPages <= maxVisible) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            const start = Math.max(1, currentPage - 2);
+            const end = Math.min(totalPages, start + maxVisible - 1);
+            for (let i = start; i <= end; i++) pages.push(i);
+        }
+        return pages;
+    }, [totalPages, currentPage]);
 
     return (
         <div className="space-y-6 animate-fadeIn pb-12">
@@ -650,6 +728,12 @@ export const AdminOrders: React.FC = () => {
                                     onRangeChange={(from, to) => {
                                         setFromDate(from);
                                         setToDate(to);
+                                        setCurrentPage(1);
+                                    }}
+                                    onReset={() => {
+                                        setFromDate(null);
+                                        setToDate(null);
+                                        setCurrentPage(1);
                                     }}
                                 />
                             </div>
@@ -673,7 +757,7 @@ export const AdminOrders: React.FC = () => {
                 <div className="flex items-center gap-2 sm:gap-4 p-1.5 bg-white border border-[#EAEAEA] rounded-xl shadow-2xs w-fit">
                     <button
                         type="button"
-                        onClick={() => setStatusTab("ongoing")}
+                        onClick={() => handleStatusTabChange("ongoing")}
                         className={cn(
                             "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer",
                             statusTab === "ongoing"
@@ -692,13 +776,13 @@ export const AdminOrders: React.FC = () => {
                             Ongoing
                         </span>
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#F5F5F5] text-[#737373]">
-                            {counts.ongoing}
+                            {statusTab === "ongoing" ? totalCurrentCount : "—"}
                         </span>
                     </button>
 
                     <button
                         type="button"
-                        onClick={() => setStatusTab("completed")}
+                        onClick={() => handleStatusTabChange("completed")}
                         className={cn(
                             "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer",
                             statusTab === "completed"
@@ -709,13 +793,15 @@ export const AdminOrders: React.FC = () => {
                         <span className="size-2 rounded-full bg-[#10B981]" />
                         <span>Completed</span>
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#F5F5F5] text-[#737373]">
-                            {counts.completed}
+                            {statusTab === "completed"
+                                ? totalCurrentCount
+                                : "—"}
                         </span>
                     </button>
 
                     <button
                         type="button"
-                        onClick={() => setStatusTab("failed")}
+                        onClick={() => handleStatusTabChange("failed")}
                         className={cn(
                             "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer",
                             statusTab === "failed"
@@ -726,13 +812,13 @@ export const AdminOrders: React.FC = () => {
                         <span className="size-2 rounded-full bg-[#EF4444]" />
                         <span>Failed</span>
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#F5F5F5] text-[#737373]">
-                            {counts.failed}
+                            {statusTab === "failed" ? totalCurrentCount : "—"}
                         </span>
                     </button>
                 </div>
 
                 {/* Export Buttons */}
-                {hasOrders && filteredOrders.length > 0 && (
+                {hasOrders && (
                     <div className="flex items-center gap-2 self-start sm:self-auto">
                         <span className="text-xs font-semibold text-[#171717] mr-1">
                             Export As:
@@ -765,15 +851,94 @@ export const AdminOrders: React.FC = () => {
                 )}
             </div>
 
-            {/* Main Content Area: Orders Table OR Empty State */}
-            {!hasOrders || filteredOrders.length === 0 ? (
+            {/* Main Content Area: Skeleton OR Error OR Empty State OR Orders Table */}
+            {isLoading ? (
+                /* Skeleton Loading State */
+                <div className="bg-white border border-[#EAEAEA] rounded-xl overflow-hidden shadow-xs animate-pulse">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-[#FAF8F3] border-b border-[#EAEAEA]">
+                                    <th className="py-3.5 px-6 text-xs font-bold text-[#171717] w-16">
+                                        S/N
+                                    </th>
+                                    <th className="py-3.5 px-6 text-xs font-bold text-[#171717]">
+                                        Order ID
+                                    </th>
+                                    <th className="py-3.5 px-6 text-xs font-bold text-[#171717]">
+                                        Customer Name
+                                    </th>
+                                    <th className="py-3.5 px-6 text-xs font-bold text-[#171717]">
+                                        Amount
+                                    </th>
+                                    <th className="py-3.5 px-6 text-xs font-bold text-[#171717]">
+                                        Order Progress
+                                    </th>
+                                    <th className="py-3.5 px-6 text-xs font-bold text-[#171717]">
+                                        Date
+                                    </th>
+                                    <th className="py-3.5 px-6 text-xs font-bold text-[#171717] text-right">
+                                        Action
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#F0F0F0]">
+                                {[...Array(6)].map((_, i) => (
+                                    <tr key={i} className="h-16">
+                                        <td className="py-4.5 px-6">
+                                            <div className="h-4 w-6 bg-gray-200 rounded" />
+                                        </td>
+                                        <td className="py-4.5 px-6">
+                                            <div className="h-4 w-28 bg-gray-200 rounded" />
+                                        </td>
+                                        <td className="py-4.5 px-6">
+                                            <div className="h-4 w-32 bg-gray-200 rounded" />
+                                        </td>
+                                        <td className="py-4.5 px-6">
+                                            <div className="h-4 w-20 bg-gray-200 rounded" />
+                                        </td>
+                                        <td className="py-4.5 px-6">
+                                            <div className="h-4 w-24 bg-gray-200 rounded" />
+                                        </td>
+                                        <td className="py-4.5 px-6">
+                                            <div className="h-4 w-28 bg-gray-200 rounded" />
+                                        </td>
+                                        <td className="py-4.5 px-6 text-right">
+                                            <div className="h-4 w-10 bg-gray-200 rounded ml-auto" />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ) : isError && !hasOrders ? (
+                <div className="py-16 flex flex-col items-center justify-center text-center bg-white border border-red-100 rounded-xl p-8 shadow-xs">
+                    <p className="text-sm font-semibold text-red-600 mb-1">
+                        Failed to load orders
+                    </p>
+                    <p className="text-xs text-[#737373] mb-4 max-w-sm">
+                        {(error as any)?.response?.data?.message ||
+                            (error as any)?.message ||
+                            "An error occurred while connecting to the server."}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => refetch()}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#D4AF37] text-white text-xs font-semibold hover:bg-[#C5A265] transition-colors cursor-pointer"
+                    >
+                        <RefreshCw className="size-3.5" />
+                        <span>Retry</span>
+                    </button>
+                </div>
+            ) : !hasOrders ? (
                 /* Empty State (Screenshot 1) */
                 <div className="py-24 sm:py-32 flex flex-col items-center justify-center text-center">
                     <EmptySadBoxIllustration />
                     <p className="text-sm font-medium text-[#737373] mt-3">
-                        {!hasOrders
-                            ? "No orders available yet"
-                            : "No orders found matching your search"}
+                        {debouncedSearch
+                            ? "No orders found matching your search"
+                            : "No orders available yet"}
                     </p>
                 </div>
             ) : (
@@ -808,42 +973,59 @@ export const AdminOrders: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#F0F0F0]">
-                                    {filteredOrders.map((order, index) => (
-                                        <tr
-                                            key={order.id}
-                                            className="hover:bg-[#FCFBF8] transition-colors group"
-                                        >
-                                            <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373] font-medium">
-                                                {String(index + 1).padStart(2, "0")}
-                                            </td>
-                                            <td className="py-4.5 px-6 text-xs sm:text-sm font-medium text-[#171717]">
-                                                Order #{order.orderNumber}
-                                            </td>
-                                            <td className="py-4.5 px-6 text-xs sm:text-sm font-medium text-[#171717]">
-                                                {order.customerName}
-                                            </td>
-                                            <td className="py-4.5 px-6 text-xs sm:text-sm font-semibold text-[#171717]">
-                                                ₦{order.amount.toLocaleString()}
-                                            </td>
-                                            <td className="py-4.5 px-6">
-                                                {renderProgressBadge(
-                                                    order.progress,
-                                                    order.category,
-                                                )}
-                                            </td>
-                                            <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373]">
-                                                {order.date}
-                                            </td>
-                                            <td className="py-4.5 px-6 text-right">
-                                                <Link
-                                                    to={`/orders/${order.id}`}
-                                                    className="text-xs sm:text-sm font-medium text-[#171717] hover:text-[#D4AF37] underline underline-offset-2 transition-colors cursor-pointer"
-                                                >
-                                                    View
-                                                </Link>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {sortedOrders.map((order, index) => {
+                                        const customerName = order.customer
+                                            ? `${order.customer.firstName} ${order.customer.lastName}`.trim()
+                                            : "Customer";
+                                        const amountNum = Number(
+                                            order.total || 0,
+                                        );
+                                        const dateDisplay = formatDateDisplay(
+                                            new Date(order.createdAt),
+                                        );
+
+                                        return (
+                                            <tr
+                                                key={order.orderId}
+                                                className="hover:bg-[#FCFBF8] transition-colors group"
+                                            >
+                                                <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373] font-medium">
+                                                    {String(
+                                                        (currentPage - 1) *
+                                                            pageSize +
+                                                            index +
+                                                            1,
+                                                    ).padStart(2, "0")}
+                                                </td>
+                                                <td className="py-4.5 px-6 text-xs sm:text-sm font-medium text-[#171717]">
+                                                    Order #{order.orderNumber}
+                                                </td>
+                                                <td className="py-4.5 px-6 text-xs sm:text-sm font-medium text-[#171717]">
+                                                    {customerName}
+                                                </td>
+                                                <td className="py-4.5 px-6 text-xs sm:text-sm font-semibold text-[#171717]">
+                                                    ₦
+                                                    {amountNum.toLocaleString()}
+                                                </td>
+                                                <td className="py-4.5 px-6">
+                                                    {renderProgressBadge(
+                                                        order.status,
+                                                    )}
+                                                </td>
+                                                <td className="py-4.5 px-6 text-xs sm:text-sm text-[#737373]">
+                                                    {dateDisplay}
+                                                </td>
+                                                <td className="py-4.5 px-6 text-right">
+                                                    <Link
+                                                        to={`/orders/${order.orderId}`}
+                                                        className="text-xs sm:text-sm font-medium text-[#171717] hover:text-[#D4AF37] underline underline-offset-2 transition-colors cursor-pointer"
+                                                    >
+                                                        View
+                                                    </Link>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -852,7 +1034,8 @@ export const AdminOrders: React.FC = () => {
                     {/* Bottom Pagination & Showing Count */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
                         <span className="text-xs text-[#737373] font-medium">
-                            Showing {filteredOrders.length} of {totalCurrentCount} Orders
+                            Showing {sortedOrders.length} of {totalCurrentCount}{" "}
+                            Orders
                         </span>
 
                         {/* Pagination controls */}
@@ -870,122 +1053,41 @@ export const AdminOrders: React.FC = () => {
                                 <ChevronLeft className="size-4" />
                             </button>
 
-                            {/* Page 1 (Active) */}
-                            <button
-                                type="button"
-                                onClick={() => setCurrentPage(1)}
-                                className={cn(
-                                    "size-8 rounded-full text-xs font-bold transition-all cursor-pointer",
-                                    currentPage === 1
-                                        ? "bg-[#D4AF37] text-white"
-                                        : "hover:bg-[#FAF7F2] text-[#737373]",
-                                )}
-                            >
-                                1
-                            </button>
+                            {/* Page numbers */}
+                            {pageNumbers.map((p) => (
+                                <button
+                                    key={p}
+                                    type="button"
+                                    onClick={() => setCurrentPage(p)}
+                                    className={cn(
+                                        "size-8 rounded-full text-xs font-bold transition-all cursor-pointer",
+                                        currentPage === p
+                                            ? "bg-[#D4AF37] text-white"
+                                            : "hover:bg-[#FAF7F2] text-[#737373]",
+                                    )}
+                                >
+                                    {p}
+                                </button>
+                            ))}
 
-                            {/* Page 2 */}
-                            <button
-                                type="button"
-                                onClick={() => setCurrentPage(2)}
-                                className={cn(
-                                    "size-8 rounded-full text-xs font-bold transition-all cursor-pointer",
-                                    currentPage === 2
-                                        ? "bg-[#D4AF37] text-white"
-                                        : "hover:bg-[#FAF7F2] text-[#737373]",
-                                )}
-                            >
-                                2
-                            </button>
-
-                            {statusTab !== "failed" && (
+                            {totalPages > 7 && currentPage < totalPages - 2 && (
                                 <>
-                                    {/* Page 3 */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setCurrentPage(3)}
-                                        className={cn(
-                                            "size-8 rounded-full text-xs font-bold transition-all cursor-pointer",
-                                            currentPage === 3
-                                                ? "bg-[#D4AF37] text-white"
-                                                : "hover:bg-[#FAF7F2] text-[#737373]",
-                                        )}
-                                    >
-                                        3
-                                    </button>
-
-                                    {/* Page 4 */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setCurrentPage(4)}
-                                        className={cn(
-                                            "size-8 rounded-full text-xs font-bold transition-all cursor-pointer",
-                                            currentPage === 4
-                                                ? "bg-[#D4AF37] text-white"
-                                                : "hover:bg-[#FAF7F2] text-[#737373]",
-                                        )}
-                                    >
-                                        4
-                                    </button>
-
-                                    {/* Page 5 */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setCurrentPage(5)}
-                                        className={cn(
-                                            "size-8 rounded-full text-xs font-bold transition-all cursor-pointer",
-                                            currentPage === 5
-                                                ? "bg-[#D4AF37] text-white"
-                                                : "hover:bg-[#FAF7F2] text-[#737373]",
-                                        )}
-                                    >
-                                        5
-                                    </button>
-
-                                    {/* Page 6 */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setCurrentPage(6)}
-                                        className={cn(
-                                            "size-8 rounded-full text-xs font-bold transition-all cursor-pointer",
-                                            currentPage === 6
-                                                ? "bg-[#D4AF37] text-white"
-                                                : "hover:bg-[#FAF7F2] text-[#737373]",
-                                        )}
-                                    >
-                                        6
-                                    </button>
-
-                                    {/* Page 7 */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setCurrentPage(7)}
-                                        className={cn(
-                                            "size-8 rounded-full text-xs font-bold transition-all cursor-pointer",
-                                            currentPage === 7
-                                                ? "bg-[#D4AF37] text-white"
-                                                : "hover:bg-[#FAF7F2] text-[#737373]",
-                                        )}
-                                    >
-                                        7
-                                    </button>
-
                                     <span className="text-xs text-[#737373] px-1 select-none">
                                         ...
                                     </span>
-
-                                    {/* Page 12 */}
                                     <button
                                         type="button"
-                                        onClick={() => setCurrentPage(12)}
+                                        onClick={() =>
+                                            setCurrentPage(totalPages)
+                                        }
                                         className={cn(
                                             "size-8 rounded-full text-xs font-bold transition-all cursor-pointer",
-                                            currentPage === 12
+                                            currentPage === totalPages
                                                 ? "bg-[#D4AF37] text-white"
                                                 : "hover:bg-[#FAF7F2] text-[#737373]",
                                         )}
                                     >
-                                        12
+                                        {totalPages}
                                     </button>
                                 </>
                             )}
@@ -993,17 +1095,10 @@ export const AdminOrders: React.FC = () => {
                             {/* Next button */}
                             <button
                                 type="button"
-                                disabled={
-                                    statusTab === "failed"
-                                        ? currentPage === 2
-                                        : currentPage === 12
-                                }
+                                disabled={currentPage >= totalPages}
                                 onClick={() =>
                                     setCurrentPage((p) =>
-                                        Math.min(
-                                            statusTab === "failed" ? 2 : 12,
-                                            p + 1,
-                                        ),
+                                        Math.min(totalPages, p + 1),
                                     )
                                 }
                                 className="size-8 rounded-full border border-[#D4AF37] text-[#D4AF37] flex items-center justify-center hover:bg-[#FAF7F2] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"

@@ -15,8 +15,15 @@ import {
     getAdminCustomersFunc,
     getAdminCustomerByIdFunc,
     getAdminCustomerStatisticsFunc,
+    getAdminOrdersFunc,
+    getAdminOrderByIdFunc,
+    getAdminOrderProgressFunc,
 } from "./apiFunc";
-import type { GetProductsParams, GetCustomersParams } from "./types";
+import type {
+    GetProductsParams,
+    GetCustomersParams,
+    GetOrdersParams,
+} from "./types";
 
 // ============================================================================
 // Query Keys
@@ -43,6 +50,11 @@ export const queryKeys = {
     adminCustomer: (customerId: string) =>
         ["admin", "customers", customerId] as const,
     adminCustomerStatistics: ["admin", "customers", "statistics"] as const,
+    adminOrders: (params?: GetOrdersParams) =>
+        ["admin", "orders", params] as const,
+    adminOrder: (orderId: string) => ["admin", "orders", orderId] as const,
+    adminOrderProgress: (orderId: string) =>
+        ["admin", "orders", orderId, "progress"] as const,
 };
 
 // ============================================================================
@@ -222,5 +234,42 @@ export const useGetAdminCustomerStatistics = () => {
         queryFn: () => getAdminCustomerStatisticsFunc(),
     });
 };
+
+// ============================================================================
+// 7. Admin Orders Queries
+// ============================================================================
+
+/**
+ * Hook to fetch orders list in admin portal with pagination, search, status
+ */
+export const useGetAdminOrders = (params?: GetOrdersParams) => {
+    return useQuery({
+        queryKey: queryKeys.adminOrders(params),
+        queryFn: () => getAdminOrdersFunc(params),
+    });
+};
+
+/**
+ * Hook to fetch order details by orderId (Admin)
+ */
+export const useGetAdminOrder = (orderId: string) => {
+    return useQuery({
+        queryKey: queryKeys.adminOrder(orderId),
+        queryFn: () => getAdminOrderByIdFunc(orderId),
+        enabled: Boolean(orderId),
+    });
+};
+
+/**
+ * Hook to fetch order progress steps & timeline (Admin)
+ */
+export const useGetAdminOrderProgress = (orderId: string) => {
+    return useQuery({
+        queryKey: queryKeys.adminOrderProgress(orderId),
+        queryFn: () => getAdminOrderProgressFunc(orderId),
+        enabled: Boolean(orderId),
+    });
+};
+
 
 

@@ -1,33 +1,73 @@
-import React, { useState, useEffect } from "react";
-import { ArrowLeft, Check } from "lucide-react";
+import React from "react";
+import { ArrowLeft, Check, Package, Loader2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
-import { toast } from "@/components/ui/sonner";
-import {
-    getOrderByIdOrNumber,
-    updateOrderStatus,
-    subscribeOrders,
-    type OrderRecord,
-} from "@/lib/orders_data";
 import { cn } from "@/lib/utils";
+import {
+    useGetAdminOrder,
+    useGetAdminOrderProgress,
+} from "@/service/queries";
+import { useUpdateAdminOrderStatus } from "@/service/mutations";
+
+const formatOrderDateTime = (isoString?: string | null) => {
+    if (!isoString) return "N/A";
+    try {
+        const d = new Date(isoString);
+        if (isNaN(d.getTime())) return isoString;
+        const day = d.getDate();
+        const month = d.toLocaleString("en-US", { month: "long" });
+        const year = d.getFullYear();
+        const time = d.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+        });
+        return `${day} ${month} ${year} at ${time}`;
+    } catch {
+        return isoString;
+    }
+};
 
 export const AdminOrderDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
-    const [order, setOrder] = useState<OrderRecord | undefined>(() =>
-        getOrderByIdOrNumber(id || "1"),
-    );
+    // Data fetching
+    const {
+        data: orderResponse,
+        isLoading: isOrderLoading,
+        isError,
+    } = useGetAdminOrder(id || "");
 
-    useEffect(() => {
-        const update = () => {
-            setOrder(getOrderByIdOrNumber(id || "1"));
-        };
-        const unsubscribe = subscribeOrders(update);
-        update();
-        return unsubscribe;
-    }, [id]);
+    const { data: progressResponse } = useGetAdminOrderProgress(id || "");
 
-    if (!order) {
+    const updateStatusMutation = useUpdateAdminOrderStatus();
+
+    const order = orderResponse?.data?.order;
+    const progressData = progressResponse?.data?.progress;
+
+    if (isOrderLoading) {
+        return (
+            <div className="space-y-6 animate-pulse pb-12">
+                <div className="space-y-2">
+                    <div className="h-6 w-32 bg-gray-200 rounded" />
+                    <div className="h-4 w-64 bg-gray-100 rounded" />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <div className="lg:col-span-8 space-y-6">
+                        <div className="h-44 bg-white rounded-2xl border border-[#EAEAEA]" />
+                        <div className="h-64 bg-white rounded-2xl border border-[#EAEAEA]" />
+                        <div className="h-36 bg-white rounded-2xl border border-[#EAEAEA]" />
+                    </div>
+                    <div className="lg:col-span-4 space-y-6">
+                        <div className="h-72 bg-white rounded-2xl border border-[#EAEAEA]" />
+                        <div className="h-32 bg-white rounded-2xl border border-[#EAEAEA]" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (isError || !order) {
         return (
             <div className="py-20 text-center">
                 <p className="text-base font-semibold text-[#171717]">
@@ -44,83 +84,99 @@ export const AdminOrderDetails: React.FC = () => {
         );
     }
 
-    // Progression state indices
-    // 0: Order Placed
-    // 1: Order Confirmed
-    // 2: In Transit
-    // 3: Delivered
-    // -1: Failed
-    const currentStepIndex = (() => {
-        if (order.progress === "Failed") return -1;
-        if (order.progress === "Delivered") return 3;
-        if (order.progress === "InTransit") return 2;
-        if (order.progress === "Order Confirmed") return 1;
-        return 0; // Order Placed
-    })();
+    const currentStatus = (
+        progressData?.currentStatus ||
+        order.status ||
+        ""
+    ).toLowerCase();
 
-    const handleAdvanceStage = () => {
-        if (currentStepIndex === 0) {
-            updateOrderStatus(order.id, "Order Confirmed");
-            toast.success("Order marked as Confirmed");
-        } else if (currentStepIndex === 1) {
-            updateOrderStatus(order.id, "InTransit");
-            toast.success("Order marked as In Transit");
-        } else if (currentStepIndex === 2) {
-            updateOrderStatus(order.id, "Delivered");
-            toast.success("Order marked as Delivered");
-        }
-    };
+    const isDelivered = currentStatus === "delivered";
+    const isCancelled =
+        currentStatus === "cancelled" ||
+        currentStatus === "failed" ||
+        Boolean(progressData?.cancelled);
+    const isInTransit = currentStatus === "shipped";
+    const isProcessing =
+        currentStatus === "processing" ||
+        (!isDelivered && !isCancelled && !isInTransit);
 
-    const handleMarkAsFailed = () => {
-        updateOrderStatus(order.id, "Failed");
-        toast.error("Order marked as Failed");
-    };
-
-    const isDelivered = order.progress === "Delivered" || order.category === "completed";
-    const isFailed = order.progress === "Failed" || order.category === "failed";
+    // Dynamic steps from progress API or fallback
+    const apiSteps = progressData?.steps || [];
+    const stepProcessing = apiSteps.find(
+        (s) => s.status.toLowerCase() === "processing",
+    );
+    const stepShipped = apiSteps.find(
+        (s) => s.status.toLowerCase() === "shipped",
+    );
+    const stepDelivered = apiSteps.find(
+        (s) => s.status.toLowerCase() === "delivered",
+    );
 
     const steps = [
         {
             title: "Order Placed",
-            timestamp: order.placedAt || "29 July 2026 at 10:42PM",
+            timestamp: formatOrderDateTime(
+                stepProcessing?.occurredAt || order.createdAt,
+            ),
             status: "completed",
         },
         {
-            title: "Order Confirmed",
-            timestamp:
-                isDelivered || isFailed || currentStepIndex >= 1
-                    ? order.confirmedAt || "29 July 2026 at 10:42PM"
-                    : "N/A",
-            status:
-                isDelivered || isFailed || currentStepIndex >= 1
-                    ? "completed"
-                    : "pending",
-        },
-        {
             title: "In Transit",
-            timestamp:
-                isDelivered || isFailed || currentStepIndex >= 2
-                    ? order.inTransitAt || "29 July 2026 at 10:42PM"
-                    : "N/A",
-            status:
-                isDelivered || isFailed || currentStepIndex >= 2
+            timestamp: stepShipped?.occurredAt
+                ? formatOrderDateTime(stepShipped.occurredAt)
+                : "N/A",
+            status: isDelivered
+                ? "completed"
+                : isCancelled
+                  ? "failed"
+                  : stepShipped?.completed || isInTransit
                     ? "completed"
                     : "pending",
         },
         {
             title: "Delivered",
-            timestamp: isDelivered
-                ? order.deliveredAt || "29 July 2026 at 11:12PM"
+            timestamp: stepDelivered?.occurredAt
+                ? formatOrderDateTime(stepDelivered.occurredAt)
                 : "N/A",
             status: isDelivered
                 ? "completed"
-                : isFailed
-                ? "failed"
-                : currentStepIndex >= 3
-                ? "completed"
-                : "pending",
+                : isCancelled
+                  ? "failed"
+                  : "pending",
         },
     ];
+
+    const customerName = order.customer
+        ? `${order.customer.firstName} ${order.customer.lastName}`.trim()
+        : "Customer";
+
+    const deliveryAddressStr = order.deliveryAddress
+        ? `${order.deliveryAddress.addressLine1}${
+              order.deliveryAddress.addressLine2
+                  ? `, ${order.deliveryAddress.addressLine2}`
+                  : ""
+          }, ${order.deliveryAddress.city}, ${order.deliveryAddress.state}${
+              order.deliveryAddress.postalCode
+                  ? ` - ${order.deliveryAddress.postalCode}`
+                  : ""
+          }, ${order.deliveryAddress.country}`
+        : "No delivery address provided";
+
+    const subtotalNum = Number(order.subtotal || 0);
+    const deliveryFeeNum = Number(order.deliveryFee || 0);
+    const totalAmountNum = Number(order.total || 0);
+
+    const isUpdating = updateStatusMutation.isPending;
+
+    const handleUpdateStatus = (
+        newStatus: "processing" | "shipped" | "delivered" | "cancelled",
+    ) => {
+        if (!id) return;
+        updateStatusMutation.mutate({
+            orderId: id,
+            payload: { status: newStatus },
+        });
+    };
 
     return (
         <div className="space-y-6 animate-fadeIn pb-12">
@@ -138,7 +194,7 @@ export const AdminOrderDetails: React.FC = () => {
                     Order #{order.orderNumber}
                 </h1>
                 <p className="text-xs sm:text-sm text-[#737373] font-hanken mt-1">
-                    Placed on {order.placedAt || "29 July 2026 at 10:42 PM"}
+                    Placed on {formatOrderDateTime(order.createdAt)}
                 </p>
             </div>
 
@@ -164,7 +220,7 @@ export const AdminOrderDetails: React.FC = () => {
                                         Customer Name
                                     </span>
                                     <span className="text-sm font-bold text-[#171717] block mt-1">
-                                        {order.customerName}
+                                        {customerName}
                                     </span>
                                 </div>
 
@@ -173,7 +229,7 @@ export const AdminOrderDetails: React.FC = () => {
                                         Phone Number
                                     </span>
                                     <span className="text-sm font-bold text-[#171717] block mt-1">
-                                        {order.customerPhone}
+                                        {order.customer?.phoneNumber || "-"}
                                     </span>
                                 </div>
 
@@ -182,7 +238,7 @@ export const AdminOrderDetails: React.FC = () => {
                                         Email Address
                                     </span>
                                     <span className="text-sm font-bold text-[#171717] block mt-1">
-                                        {order.customerEmail}
+                                        {order.customer?.email || "-"}
                                     </span>
                                 </div>
 
@@ -191,7 +247,7 @@ export const AdminOrderDetails: React.FC = () => {
                                         Delivery Address
                                     </span>
                                     <span className="text-sm font-bold text-[#171717] block mt-1">
-                                        {order.deliveryAddress}
+                                        {deliveryAddressStr}
                                     </span>
                                 </div>
                             </div>
@@ -214,47 +270,81 @@ export const AdminOrderDetails: React.FC = () => {
                                 <table className="w-full text-left border-collapse text-sm">
                                     <thead>
                                         <tr className="bg-[#FAF8F3] border-b border-[#EAEAEA] text-xs font-bold text-[#171717]">
-                                            <th className="py-3.5 px-6">Product Name</th>
+                                            <th className="py-3.5 px-6">
+                                                Product Name
+                                            </th>
                                             <th className="py-3.5 px-6">Brand</th>
                                             <th className="py-3.5 px-6">Price</th>
-                                            <th className="py-3.5 px-6">Quantity</th>
+                                            <th className="py-3.5 px-6">
+                                                Quantity
+                                            </th>
                                             <th className="py-3.5 px-6 text-right">
                                                 Subtotal
                                             </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-[#F0F0F0]">
-                                        {order.items.map((item) => (
-                                            <tr
-                                                key={item.id}
-                                                className="hover:bg-[#FCFBF8] transition-colors"
-                                            >
-                                                <td className="py-4 px-6">
-                                                    <div className="flex items-center gap-3.5 min-w-48">
-                                                        <img
-                                                            src={item.image}
-                                                            alt={item.name}
-                                                            className="size-11 rounded-lg object-contain bg-[#FAF7F2] border border-[#EEEEEE] p-1 shrink-0"
-                                                        />
-                                                        <span className="text-xs sm:text-sm font-semibold text-[#171717]">
-                                                            {item.name}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="py-4 px-6 text-xs sm:text-sm text-[#171717]">
-                                                    {item.brand}
-                                                </td>
-                                                <td className="py-4 px-6 text-xs sm:text-sm text-[#171717] font-medium">
-                                                    ₦{item.price.toLocaleString()}
-                                                </td>
-                                                <td className="py-4 px-6 text-xs sm:text-sm text-[#171717]">
-                                                    {item.quantity}
-                                                </td>
-                                                <td className="py-4 px-6 text-xs sm:text-sm text-[#171717] text-right font-medium">
-                                                    ₦{item.subtotal.toLocaleString()}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {order.items.map((item, idx) => {
+                                            const itemImage =
+                                                item.product?.images?.[0]
+                                                    ?.imageUrl;
+                                            const itemBrand =
+                                                item.product?.brand?.name ||
+                                                item.sellingUnitName ||
+                                                "-";
+                                            const unitPriceNum = Number(
+                                                item.unitPrice || 0,
+                                            );
+                                            const lineTotalNum = Number(
+                                                item.lineTotal || 0,
+                                            );
+
+                                            return (
+                                                <tr
+                                                    key={
+                                                        item.orderItemId || idx
+                                                    }
+                                                    className="hover:bg-[#FCFBF8] transition-colors"
+                                                >
+                                                    <td className="py-4 px-6">
+                                                        <div className="flex items-center gap-3.5 min-w-48">
+                                                            {itemImage ? (
+                                                                <img
+                                                                    src={
+                                                                        itemImage
+                                                                    }
+                                                                    alt={
+                                                                        item.productName
+                                                                    }
+                                                                    className="size-11 rounded-lg object-contain bg-[#FAF7F2] border border-[#EEEEEE] p-1 shrink-0"
+                                                                />
+                                                            ) : (
+                                                                <div className="size-11 rounded-lg bg-[#FAF7F2] border border-[#EEEEEE] flex items-center justify-center text-[#888888] shrink-0">
+                                                                    <Package className="size-5" />
+                                                                </div>
+                                                            )}
+                                                            <span className="text-xs sm:text-sm font-semibold text-[#171717]">
+                                                                {item.productName}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-4 px-6 text-xs sm:text-sm text-[#171717]">
+                                                        {itemBrand}
+                                                    </td>
+                                                    <td className="py-4 px-6 text-xs sm:text-sm text-[#171717] font-medium">
+                                                        ₦
+                                                        {unitPriceNum.toLocaleString()}
+                                                    </td>
+                                                    <td className="py-4 px-6 text-xs sm:text-sm text-[#171717]">
+                                                        {item.quantity}
+                                                    </td>
+                                                    <td className="py-4 px-6 text-xs sm:text-sm text-[#171717] text-right font-medium">
+                                                        ₦
+                                                        {lineTotalNum.toLocaleString()}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
@@ -274,24 +364,26 @@ export const AdminOrderDetails: React.FC = () => {
 
                         <div className="bg-white border border-[#EAEAEA] rounded-2xl p-6 shadow-xs space-y-3.5">
                             <div className="flex items-center justify-between text-xs sm:text-sm text-[#737373]">
-                                <span>Subtotal ({order.items.length} Items):</span>
+                                <span>
+                                    Subtotal ({order.items.length} Items):
+                                </span>
                                 <span className="text-[#171717] font-medium">
-                                    ₦{order.subtotal.toLocaleString()}
+                                    ₦{subtotalNum.toLocaleString()}
                                 </span>
                             </div>
 
                             <div className="flex items-center justify-between text-xs sm:text-sm text-[#737373]">
                                 <span>Delivery Fee:</span>
                                 <span className="text-[#171717] font-medium">
-                                    {order.deliveryFee === 0
+                                    {deliveryFeeNum === 0
                                         ? "₦0"
-                                        : `₦${order.deliveryFee.toLocaleString()}`}
+                                        : `₦${deliveryFeeNum.toLocaleString()}`}
                                 </span>
                             </div>
 
                             <div className="border-t border-[#F0F0F0] pt-3.5 flex items-center justify-between text-sm sm:text-base font-bold text-[#171717]">
                                 <span>Total:</span>
-                                <span>₦{order.amount.toLocaleString()}</span>
+                                <span>₦{totalAmountNum.toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
@@ -311,25 +403,27 @@ export const AdminOrderDetails: React.FC = () => {
                                         "size-2 rounded-full",
                                         isDelivered
                                             ? "bg-[#10B981]"
-                                            : isFailed
-                                            ? "bg-[#EF4444]"
-                                            : "bg-[#D4AF37]",
+                                            : isCancelled
+                                              ? "bg-[#EF4444]"
+                                              : "bg-[#D4AF37]",
                                     )}
                                 />
                                 <span
                                     className={cn(
                                         isDelivered
                                             ? "text-[#10B981]"
-                                            : isFailed
-                                            ? "text-[#EF4444]"
-                                            : "text-[#D4AF37]",
+                                            : isCancelled
+                                              ? "text-[#EF4444]"
+                                              : "text-[#D4AF37]",
                                     )}
                                 >
                                     {isDelivered
                                         ? "Delivered"
-                                        : isFailed
-                                        ? "Failed"
-                                        : "Ongoing"}
+                                        : isCancelled
+                                          ? "Failed"
+                                          : isInTransit
+                                            ? "In Transit"
+                                            : "Ongoing"}
                                 </span>
                             </div>
                         </div>
@@ -343,7 +437,10 @@ export const AdminOrderDetails: React.FC = () => {
                                     steps[idx + 1].status === "completed";
 
                                 return (
-                                    <div key={idx} className="relative flex items-start gap-4">
+                                    <div
+                                        key={idx}
+                                        className="relative flex items-start gap-4"
+                                    >
                                         {/* Step Icon */}
                                         <div className="relative z-10 shrink-0">
                                             {step.status === "completed" ? (
@@ -396,45 +493,53 @@ export const AdminOrderDetails: React.FC = () => {
                             })}
                         </div>
 
-                        {/* Action Buttons - only shown for ongoing orders */}
-                        {!isDelivered && !isFailed && (
+                        {/* Action Buttons - only shown for non-delivered and non-cancelled orders */}
+                        {!isDelivered && !isCancelled && (
                             <div className="pt-4 space-y-2.5">
-                                {currentStepIndex === 0 && (
+                                {isProcessing && (
                                     <button
                                         type="button"
-                                        onClick={handleAdvanceStage}
-                                        className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-3 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+                                        disabled={isUpdating}
+                                        onClick={() =>
+                                            handleUpdateStatus("shipped")
+                                        }
+                                        className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-3 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
-                                        Mark as Confirmed
+                                        {isUpdating ? (
+                                            <Loader2 className="size-4 animate-spin" />
+                                        ) : null}
+                                        <span>Mark as in Transit</span>
                                     </button>
                                 )}
 
-                                {currentStepIndex === 1 && (
+                                {isInTransit && (
                                     <button
                                         type="button"
-                                        onClick={handleAdvanceStage}
-                                        className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-3 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
+                                        disabled={isUpdating}
+                                        onClick={() =>
+                                            handleUpdateStatus("delivered")
+                                        }
+                                        className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-3 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
-                                        Mark as in Transit
-                                    </button>
-                                )}
-
-                                {currentStepIndex === 2 && (
-                                    <button
-                                        type="button"
-                                        onClick={handleAdvanceStage}
-                                        className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-3 px-4 rounded-xl text-xs sm:text-sm transition-all shadow-xs cursor-pointer"
-                                    >
-                                        Mark as Delivered
+                                        {isUpdating ? (
+                                            <Loader2 className="size-4 animate-spin" />
+                                        ) : null}
+                                        <span>Mark as Delivered</span>
                                     </button>
                                 )}
 
                                 <button
                                     type="button"
-                                    onClick={handleMarkAsFailed}
-                                    className="w-full border border-[#EF4444] text-[#EF4444] hover:bg-red-50 font-semibold py-3 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
+                                    disabled={isUpdating}
+                                    onClick={() =>
+                                        handleUpdateStatus("cancelled")
+                                    }
+                                    className="w-full border border-[#EF4444] text-[#EF4444] hover:bg-red-50 font-semibold py-3 px-4 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    Mark as Failed
+                                    {isUpdating ? (
+                                        <Loader2 className="size-4 animate-spin" />
+                                    ) : null}
+                                    <span>Mark as Failed</span>
                                 </button>
                             </div>
                         )}
@@ -447,17 +552,19 @@ export const AdminOrderDetails: React.FC = () => {
                         </h3>
 
                         <div className="flex items-center justify-between text-xs sm:text-sm">
-                            <span className="text-[#737373]">Payment Status:</span>
+                            <span className="text-[#737373]">
+                                Payment Status:
+                            </span>
                             <span className="inline-flex items-center gap-1.5 font-semibold text-[#10B981]">
                                 <span className="size-2 rounded-full bg-[#10B981]" />
-                                Completed
+                                {order.paidAt ? "Completed" : "Paid"}
                             </span>
                         </div>
 
                         <div className="flex items-center justify-between text-xs sm:text-sm">
                             <span className="text-[#737373]">Amount:</span>
                             <span className="font-bold text-[#171717] text-sm sm:text-base">
-                                ₦{order.amount.toLocaleString()}
+                                ₦{totalAmountNum.toLocaleString()}
                             </span>
                         </div>
                     </div>

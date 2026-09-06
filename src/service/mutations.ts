@@ -12,6 +12,7 @@ import {
     createAdminProductFunc,
     updateAdminProductFunc,
     deleteAdminProductFunc,
+    updateAdminOrderStatusFunc,
 } from "./apiFunc";
 import { queryKeys } from "./queries";
 import type {
@@ -22,6 +23,7 @@ import type {
     UpdateBrandPayload,
     CreateProductPayload,
     AdminUpdateProductPayload,
+    UpdateOrderStatusPayload,
 } from "./types";
 
 // ============================================================================
@@ -352,3 +354,45 @@ export const useDeleteAdminProduct = () => {
         },
     });
 };
+
+// ============================================================================
+// 6. Orders Mutations (Admin)
+// ============================================================================
+
+/**
+ * Hook to update order status (Admin)
+ * PATCH /admin/orders/:orderId/status
+ */
+export const useUpdateAdminOrderStatus = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({
+            orderId,
+            payload,
+        }: {
+            orderId: string;
+            payload: UpdateOrderStatusPayload;
+        }) => updateAdminOrderStatusFunc(orderId, payload),
+        onSuccess: (data, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: ["admin", "orders"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.adminOrder(variables.orderId),
+            });
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.adminOrderProgress(variables.orderId),
+            });
+            toast.success(data?.message || "Order status updated successfully");
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to update order status",
+            );
+        },
+    });
+};
+

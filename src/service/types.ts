@@ -299,3 +299,127 @@ export type AdminCustomerDetailResponse = ApiResponse<{
 export type AdminCustomerStatisticsResponse = ApiResponse<{
     statistics: CustomerStatistics;
 }>;
+
+// ----------------------------------------------------------------------
+// 6. Orders & Order Progress Types
+// ----------------------------------------------------------------------
+
+export type AdminOrderStatus =
+    | "processing"
+    | "shipped"
+    | "delivered"
+    | "cancelled"
+    | string;
+
+export interface AdminOrderCustomer {
+    customerId?: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber?: string;
+}
+
+export interface AdminOrderDeliveryAddress {
+    addressId?: string;
+    label?: string;
+    firstName?: string;
+    lastName?: string;
+    phoneNumber?: string;
+    addressLine1: string;
+    addressLine2?: string | null;
+    city: string;
+    state: string;
+    postalCode?: string | null;
+    country: string;
+}
+
+export interface AdminOrderItemDetail {
+    orderItemId: string;
+    productName: string;
+    sellingUnitName?: string;
+    sku?: string;
+    unitPrice: string | number;
+    quantity: number;
+    lineTotal: string | number;
+    product?: any;
+}
+
+export interface AdminOrderDetail {
+    orderId: string;
+    orderNumber: string;
+    customer?: AdminOrderCustomer;
+    deliveryAddress?: AdminOrderDeliveryAddress;
+    subtotal: string | number;
+    deliveryFee: string | number;
+    total: string | number;
+    currency: string;
+    status: AdminOrderStatus;
+    paymentReference?: string | null;
+    paidAt?: string | null;
+    createdAt: string;
+    updatedAt?: string;
+    items: AdminOrderItemDetail[];
+}
+
+export interface GetOrdersParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: AdminOrderStatus;
+}
+
+export type AdminOrderListResponse = ApiResponse<{
+    orders: AdminOrderDetail[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+}>;
+
+export type AdminOrderDetailResponse = ApiResponse<{
+    order: AdminOrderDetail;
+}>;
+
+export interface UpdateOrderStatusPayload {
+    status: "processing" | "shipped" | "delivered" | "cancelled" | string;
+}
+
+export type UpdateOrderStatusResponse = ApiResponse<{
+    order: {
+        orderId: string;
+        orderNumber: string;
+        status: string;
+    };
+}>;
+
+export interface OrderProgressStep {
+    status: string;
+    label: string;
+    completed: boolean;
+    occurredAt: string | null;
+}
+
+export interface OrderProgressTimeline {
+    orderStatusHistoryId: string;
+    status: string;
+    label: string;
+    previousStatus: string | null;
+    occurredAt: string;
+    derived: boolean;
+}
+
+export interface OrderProgressData {
+    orderId: string;
+    orderNumber: string;
+    currentStatus: string;
+    cancelled: boolean;
+    steps: OrderProgressStep[];
+    timeline: OrderProgressTimeline[];
+}
+
+export type AdminOrderProgressResponse = ApiResponse<{
+    progress: OrderProgressData;
+}>;
+

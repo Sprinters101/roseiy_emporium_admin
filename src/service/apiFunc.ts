@@ -24,6 +24,12 @@ import type {
     AdminCustomerListResponse,
     AdminCustomerDetailResponse,
     AdminCustomerStatisticsResponse,
+    GetOrdersParams,
+    AdminOrderListResponse,
+    AdminOrderDetailResponse,
+    UpdateOrderStatusPayload,
+    UpdateOrderStatusResponse,
+    AdminOrderProgressResponse,
 } from "./types";
 
 // ============================================================================
@@ -366,4 +372,64 @@ export const getAdminCustomerStatisticsFunc =
             );
         return response.data;
     };
+
+// ============================================================================
+// 7. Orders Endpoints (Admin)
+// ============================================================================
+
+/**
+ * List orders (Admin) with pagination, search, status
+ * GET /admin/orders
+ */
+export const getAdminOrdersFunc = async (
+    params?: GetOrdersParams,
+): Promise<AdminOrderListResponse> => {
+    const response = await axiosInstance.get<AdminOrderListResponse>(
+        "/admin/orders",
+        { params },
+    );
+    return response.data;
+};
+
+/**
+ * Get one order by ID (Admin)
+ * GET /admin/orders/:orderId
+ */
+export const getAdminOrderByIdFunc = async (
+    orderId: string,
+): Promise<AdminOrderDetailResponse> => {
+    const response = await axiosInstance.get<AdminOrderDetailResponse>(
+        `/admin/orders/${orderId}`,
+    );
+    return response.data;
+};
+
+/**
+ * Get order progress steps & timeline (Admin)
+ * GET /admin/orders/:orderId/progress
+ */
+export const getAdminOrderProgressFunc = async (
+    orderId: string,
+): Promise<AdminOrderProgressResponse> => {
+    const response = await axiosInstance.get<AdminOrderProgressResponse>(
+        `/admin/orders/${orderId}/progress`,
+    );
+    return response.data;
+};
+
+/**
+ * Update order status (Admin)
+ * PATCH /admin/orders/:orderId/status
+ */
+export const updateAdminOrderStatusFunc = async (
+    orderId: string,
+    payload: UpdateOrderStatusPayload,
+): Promise<UpdateOrderStatusResponse> => {
+    const response = await axiosInstance.patch<UpdateOrderStatusResponse>(
+        `/admin/orders/${orderId}/status`,
+        payload,
+    );
+    return response.data;
+};
+
 
