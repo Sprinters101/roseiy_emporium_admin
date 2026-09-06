@@ -16,7 +16,14 @@ import type {
     PublicSingleProductResponse,
     AdminUpdateProductPayload,
     AdminUpdateProductResponse,
+    CreateProductPayload,
+    AdminProductListResponse,
+    AdminProductResponse,
     ApiResponse,
+    GetCustomersParams,
+    AdminCustomerListResponse,
+    AdminCustomerDetailResponse,
+    AdminCustomerStatisticsResponse,
 } from "./types";
 
 // ============================================================================
@@ -242,8 +249,51 @@ export const getPublicProductBySlugFunc = async (
 };
 
 // ============================================================================
-// 5. Admin Product Update Endpoint
+// 5. Admin Products Endpoints
 // ============================================================================
+
+/**
+ * List all products (Admin with query filters)
+ * GET /admin/products
+ */
+export const getAdminProductsFunc = async (
+    params?: GetProductsParams,
+): Promise<AdminProductListResponse> => {
+    const response = await axiosInstance.get<AdminProductListResponse>(
+        "/admin/products",
+        {
+            params,
+        },
+    );
+    return response.data;
+};
+
+/**
+ * Get one product by ID (Admin)
+ * GET /admin/products/:productId
+ */
+export const getAdminProductByIdFunc = async (
+    productId: string,
+): Promise<AdminProductResponse> => {
+    const response = await axiosInstance.get<AdminProductResponse>(
+        `/admin/products/${productId}`,
+    );
+    return response.data;
+};
+
+/**
+ * Create a new product (Admin)
+ * POST /admin/products
+ */
+export const createAdminProductFunc = async (
+    payload: CreateProductPayload,
+): Promise<AdminProductResponse> => {
+    const response = await axiosInstance.post<AdminProductResponse>(
+        "/admin/products",
+        payload,
+    );
+    return response.data;
+};
 
 /**
  * Admin Product Full Update (Single request update)
@@ -259,3 +309,61 @@ export const updateAdminProductFunc = async (
     );
     return response.data;
 };
+
+/**
+ * Delete a product (Admin)
+ * DELETE /admin/products/:productId
+ */
+export const deleteAdminProductFunc = async (
+    productId: string,
+): Promise<ApiResponse<null>> => {
+    const response = await axiosInstance.delete<ApiResponse<null>>(
+        `/admin/products/${productId}`,
+    );
+    return response.data;
+};
+
+// ============================================================================
+// 6. Customers Endpoints (Admin)
+// ============================================================================
+
+/**
+ * List registered customers with pagination, search, and status filter
+ * GET /admin/customers
+ */
+export const getAdminCustomersFunc = async (
+    params?: GetCustomersParams,
+): Promise<AdminCustomerListResponse> => {
+    const response = await axiosInstance.get<AdminCustomerListResponse>(
+        "/admin/customers",
+        { params },
+    );
+    return response.data;
+};
+
+/**
+ * Get customer details (profile, addresses, order history, summary)
+ * GET /admin/customers/:customerId
+ */
+export const getAdminCustomerByIdFunc = async (
+    customerId: string,
+): Promise<AdminCustomerDetailResponse> => {
+    const response = await axiosInstance.get<AdminCustomerDetailResponse>(
+        `/admin/customers/${customerId}`,
+    );
+    return response.data;
+};
+
+/**
+ * Get overall customer statistics for admin dashboard
+ * GET /admin/customers/statistics
+ */
+export const getAdminCustomerStatisticsFunc =
+    async (): Promise<AdminCustomerStatisticsResponse> => {
+        const response =
+            await axiosInstance.get<AdminCustomerStatisticsResponse>(
+                "/admin/customers/statistics",
+            );
+        return response.data;
+    };
+

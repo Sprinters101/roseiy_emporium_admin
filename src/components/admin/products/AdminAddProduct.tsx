@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from "react";
-import { ArrowLeft, CloudUpload, X, Info } from "lucide-react";
+import { ArrowLeft, CloudUpload, X, Info, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router";
 import type { Product } from "@/config/types";
 import { CustomDropdown } from "@/components/common/CustomDropdown";
@@ -7,6 +7,8 @@ import { CustomInput } from "@/components/common/CustomInput";
 import { CustomPriceInput } from "@/components/common/CustomPriceInput";
 import { toast } from "@/components/ui/sonner";
 import { useGetAdminBrands, useGetAdminCategories } from "@/service/queries";
+import { useCreateAdminProduct } from "@/service/mutations";
+import { uploadImageToCloudinary } from "@/lib/cloudinary";
 
 const CATEGORY_OPTIONS = [
     { label: "Whiskey", value: "Whiskey" },
@@ -36,6 +38,7 @@ interface ImageItem {
     id: string;
     url: string;
     name: string;
+    isUploading?: boolean;
 }
 
 interface AdminAddProductProps {
@@ -76,6 +79,10 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
         return BRAND_OPTIONS;
     }, [brandsResponse]);
 
+    // Create Product Mutation
+    const { mutate: createProduct, isPending: isCreating } =
+        useCreateAdminProduct();
+
     // Form state
     const [name, setName] = useState("");
     const [size, setSize] = useState("");
@@ -88,6 +95,11 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
     const [casesLeft, setCasesLeft] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const isUploadingAny = useMemo(
+        () => images.some((img) => img.isUploading),
+        [images],
+    );
+
     const handleBack = () => {
         if (onBack) {
             onBack();
@@ -96,16 +108,51 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
         }
     };
 
-    // Handle Image upload
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Handle Image upload to Cloudinary
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            const newFiles = Array.from(e.target.files);
-            const uploadedItems: ImageItem[] = newFiles.map((file, idx) => ({
-                id: `${Date.now()}-${idx}`,
-                url: URL.createObjectURL(file),
-                name: file.name,
-            }));
-            setImages((prev) => [...prev, ...uploadedItems]);
+            const filesToUpload = Array.from(e.target.files);
+            e.target.value = "";
+
+            for (const file of filesToUpload) {
+                const tempId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                const localPreview = URL.createObjectURL(file);
+
+                // Add placeholder with local preview while uploading to Cloudinary
+                setImages((prev) => [
+                    ...prev,
+                    {
+                        id: tempId,
+                        url: localPreview,
+                        name: file.name,
+                        isUploading: true,
+                    },
+                ]);
+
+                try {
+                    const cloudinaryUrl = await uploadImageToCloudinary(file);
+                    setImages((prev) =>
+                        prev.map((img) =>
+                            img.id === tempId
+                                ? {
+                                      ...img,
+                                      url: cloudinaryUrl,
+                                      isUploading: false,
+                                  }
+                                : img,
+                        ),
+                    );
+                    URL.revokeObjectURL(localPreview);
+                } catch (err: any) {
+                    toast.error(
+                        `Failed to upload ${file.name}: ${err?.message || "Cloudinary error"}`,
+                    );
+                    setImages((prev) =>
+                        prev.filter((img) => img.id !== tempId),
+                    );
+                    URL.revokeObjectURL(localPreview);
+                }
+            }
         }
     };
 
@@ -117,53 +164,159 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
     const handlePublish = (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (isUploadingAny) {
+            toast.error(
+                "Please wait for all images to finish uploading before publishing",
+            );
+            return;
+        }
+
         if (!name.trim()) {
             toast.error("Please enter a product name");
             return;
         }
 
-        if (!priceInPieces || Number(priceInPieces.replace(/,/g, "")) <= 0) {
+        const piecesPriceNum = Number(priceInPieces.replace(/,/g, ""));
+        if (!priceInPieces || piecesPriceNum <= 0) {
             toast.error("Please enter a valid selling price in pieces");
             return;
         }
 
         setIsSubmitting(true);
 
-        const newProduct: Product = {
+        const apiCategories = categoriesResponse?.data?.categories || [];
+        const matchedCategory = apiCategories.find(
+            (c) =>
+                c.name.toLowerCase() === category.toLowerCase() ||
+                c.categoryId === category,
+        );
+        const categoryId =
+            matchedCategory?.categoryId || apiCategories[0]?.categoryId;
+
+        const apiBrands = brandsResponse?.data?.brands || [];
+        const matchedBrand = apiBrands.find(
+            (b) =>
+                b.name.toLowerCase() === brand.toLowerCase() ||
+                b.brandId === brand,
+        );
+        const brandId = matchedBrand?.brandId || apiBrands[0]?.brandId;
+
+        const piecesStockNum = piecesLeft
+            ? Number(piecesLeft.replace(/,/g, ""))
+            : 0;
+        const casePriceNum = priceInCases
+            ? Number(priceInCases.replace(/,/g, ""))
+            : 0;
+        const casesStockNum = casesLeft
+            ? Number(casesLeft.replace(/,/g, ""))
+            : 0;
+
+        const sellingUnits = [
+            {
+                name: "Piece",
+                price: piecesPriceNum,
+                stock: piecesStockNum,
+                status: "active",
+            },
+        ];
+
+        if (casePriceNum > 0) {
+            sellingUnits.push({
+                name: "Carton",
+                price: casePriceNum,
+                stock: casesStockNum,
+                status: "active",
+            });
+        }
+
+        const fallbackImage = "";
+        const productImages =
+            images.length > 0
+                ? images.map((img, idx) => ({
+                      imageUrl: img.url,
+                      altText: name.trim(),
+                      isPrimary: idx === 0,
+                      sortOrder: idx,
+                  }))
+                : [
+                      {
+                          imageUrl: fallbackImage,
+                          altText: name.trim(),
+                          isPrimary: true,
+                          sortOrder: 0,
+                      },
+                  ];
+
+        const localProduct: Product = {
             id: String(Date.now()),
             name: name.trim(),
             category: category || "Whiskey",
             brand: brand || "Roseiy Collection",
             volume: size || "750ml",
-            price: Number(priceInPieces.replace(/,/g, "")),
-            casePrice: priceInCases
-                ? Number(priceInCases.replace(/,/g, ""))
-                : undefined,
-            priceInCases: priceInCases
-                ? Number(priceInCases.replace(/,/g, ""))
-                : undefined,
-            piecesLeft: piecesLeft ? Number(piecesLeft) : 0,
-            casesLeft: casesLeft ? Number(casesLeft) : 0,
+            price: piecesPriceNum,
+            casePrice: casePriceNum > 0 ? casePriceNum : undefined,
+            priceInCases: casePriceNum > 0 ? casePriceNum : undefined,
+            piecesLeft: piecesStockNum,
+            casesLeft: casesStockNum,
             status:
-                Number(piecesLeft || 0) > 0 || Number(casesLeft || 0) > 0
+                piecesStockNum > 0 || casesStockNum > 0
                     ? "Available"
                     : "Out of Stock",
-            image:
-                images.length > 0
-                    ? images[0].url
-                    : "https://res.cloudinary.com/dzk1a6bjt/image/upload/v1784813212/p_8_zk4ynx.png",
+            image: images.length > 0 ? images[0].url : fallbackImage,
             gallery: images.map((img) => img.url),
             isFeatured: false,
         };
 
-        setTimeout(() => {
+        if (!categoryId) {
             setIsSubmitting(false);
-            if (onProductCreated) {
-                onProductCreated(newProduct);
-            }
-            toast.success(`"${newProduct.name}" published successfully!`);
-            handleBack();
-        }, 300);
+            toast.error("Please select a valid category");
+            return;
+        }
+
+        createProduct(
+            {
+                name: name.trim(),
+                description: size ? `Volume: ${size}` : undefined,
+                categoryId,
+                brandId: brandId || undefined,
+                status:
+                    piecesStockNum > 0 || casesStockNum > 0
+                        ? "active"
+                        : "inactive",
+                sellingUnits,
+                images: productImages,
+            },
+            {
+                onSuccess: (resData) => {
+                    setIsSubmitting(false);
+                    const createdItem = resData?.data?.product;
+                    if (onProductCreated) {
+                        if (createdItem) {
+                            onProductCreated({
+                                ...localProduct,
+                                id:
+                                    createdItem.productId ||
+                                    createdItem.id ||
+                                    localProduct.id,
+                            });
+                        } else {
+                            onProductCreated(localProduct);
+                        }
+                    }
+                    toast.success(`"${localProduct.name}" created successfully!`);
+                    handleBack();
+                },
+                onError: (err: any) => {
+                    setIsSubmitting(false);
+                    const errMsg =
+                        err?.response?.data?.message ||
+                        err?.message ||
+                        "Failed to create product. Please check the details and try again.";
+                    toast.error(errMsg);
+                    // Remain on the add product page so the user can fix any errors and retry
+                },
+            },
+        );
     };
 
     // Numeric formatting for preview price
@@ -194,7 +347,8 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
                     Add New Product
                 </h1>
                 <p className="text-xs sm:text-sm text-[#737373] font-hanken mt-1">
-                    Fill in the details below to add a new product to your catalogue
+                    Fill in the details below to add a new product to your
+                    catalogue
                 </p>
             </div>
 
@@ -316,16 +470,25 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
                                             alt={img.name}
                                             className="max-h-full max-w-full object-contain"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                handleRemoveImage(img.id)
-                                            }
-                                            className="size-5 rounded-full bg-white text-red-500 shadow-sm flex items-center justify-center hover:bg-red-50 cursor-pointer absolute top-2 right-2 transition-transform"
-                                            title="Remove image"
-                                        >
-                                            <X className="size-3.5" />
-                                        </button>
+                                        {img.isUploading ? (
+                                            <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex flex-col items-center justify-center text-white z-10">
+                                                <Loader2 className="size-5 animate-spin text-[#D4AF37]" />
+                                                <span className="text-[10px] font-medium mt-1">
+                                                    Uploading...
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    handleRemoveImage(img.id)
+                                                }
+                                                className="size-5 rounded-full bg-white text-red-500 shadow-sm flex items-center justify-center hover:bg-red-50 cursor-pointer absolute top-2 right-2 transition-transform z-10"
+                                                title="Remove image"
+                                            >
+                                                <X className="size-3.5" />
+                                            </button>
+                                        )}
                                     </div>
                                     <span className="text-[11px] text-[#737373] mt-1.5 truncate max-w-[120px] text-center">
                                         {img.name}
@@ -351,14 +514,18 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
                                 label="Selling Price in Pieces"
                                 placeholder="80,000"
                                 value={priceInPieces}
-                                onChange={(formatted) => setPriceInPieces(formatted)}
+                                onChange={(formatted) =>
+                                    setPriceInPieces(formatted)
+                                }
                             />
 
                             <CustomPriceInput
                                 label="Selling Price in Cases"
                                 placeholder="80,000"
                                 value={priceInCases}
-                                onChange={(formatted) => setPriceInCases(formatted)}
+                                onChange={(formatted) =>
+                                    setPriceInCases(formatted)
+                                }
                             />
                         </div>
                     </div>
@@ -405,17 +572,28 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
                             Product Preview
                         </h3>
                         <p className="text-xs text-[#737373] mt-0.5">
-                            Your product will appear here as you complete the form.
+                            Your product will appear here as you complete the
+                            form.
                         </p>
 
                         {/* Image Preview Box */}
                         <div className="bg-[#FAF8F5] rounded-2xl flex items-center justify-center p-6 my-5 aspect-square relative overflow-hidden">
                             {images.length > 0 ? (
-                                <img
-                                    src={images[0].url}
-                                    alt={name || "Product Preview"}
-                                    className="max-h-full max-w-full object-contain animate-fadeIn"
-                                />
+                                <div className="relative w-full h-full flex items-center justify-center">
+                                    <img
+                                        src={images[0].url}
+                                        alt={name || "Product Preview"}
+                                        className="max-h-full max-w-full object-contain animate-fadeIn"
+                                    />
+                                    {images[0].isUploading && (
+                                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] rounded-2xl flex flex-col items-center justify-center text-white z-10">
+                                            <Loader2 className="size-6 animate-spin text-[#D4AF37]" />
+                                            <span className="text-xs font-medium mt-1">
+                                                Uploading to Cloudinary...
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
                             ) : (
                                 /* Line-art image placeholder */
                                 <svg
@@ -462,17 +640,30 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
                         {/* Publish Button */}
                         <button
                             type="button"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || isCreating || isUploadingAny}
                             onClick={handlePublish}
-                            className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-3.5 rounded-xl transition-all shadow-xs cursor-pointer text-sm mt-6 disabled:opacity-50"
+                            className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-3.5 rounded-xl transition-all shadow-xs cursor-pointer text-sm mt-6 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            {isSubmitting ? "Publishing..." : "Publish"}
+                            {isSubmitting || isCreating ? (
+                                <>
+                                    <Loader2 className="size-4 animate-spin" />
+                                    <span>Publishing...</span>
+                                </>
+                            ) : isUploadingAny ? (
+                                <>
+                                    <Loader2 className="size-4 animate-spin" />
+                                    <span>Uploading Images...</span>
+                                </>
+                            ) : (
+                                <span>Publish</span>
+                            )}
                         </button>
 
                         <div className="text-[11px] text-[#737373] flex items-center justify-center gap-1.5 mt-3 text-center">
                             <Info className="size-3.5 text-[#D4AF37] shrink-0" />
                             <span>
-                                This product will be visible to customers once published
+                                This product will be visible to customers once
+                                published
                             </span>
                         </div>
                     </div>

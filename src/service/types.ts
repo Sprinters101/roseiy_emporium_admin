@@ -144,8 +144,20 @@ export interface GetProductsParams {
     search?: string;
     categoryId?: string;
     brandId?: string;
+    status?: "active" | "inactive" | string;
     featured?: boolean;
     sort?: "newest" | "name_asc" | "name_desc" | string;
+}
+
+export interface CreateProductPayload {
+    name: string;
+    description?: string;
+    categoryId: string;
+    brandId?: string;
+    status?: "active" | "inactive" | string;
+    featured?: boolean;
+    sellingUnits?: SellingUnit[];
+    images?: ProductImage[];
 }
 
 export interface AdminUpdateProductPayload {
@@ -170,4 +182,120 @@ export type PublicProductsResponse = ApiResponse<{
 }>;
 
 export type PublicSingleProductResponse = ApiResponse<{ product: ProductItem }>;
+export type AdminProductListResponse = ApiResponse<{
+    products: ProductItem[];
+    pagination?: {
+        total?: number;
+        page?: number;
+        limit?: number;
+        totalPages?: number;
+    };
+}>;
+export type AdminProductResponse = ApiResponse<{ product: ProductItem }>;
 export type AdminUpdateProductResponse = ApiResponse<{ product: ProductItem }>;
+
+// ----------------------------------------------------------------------
+// 5. Customers Types
+// ----------------------------------------------------------------------
+
+export type CustomerVerificationStatus =
+    | "verified"
+    | "pending_verification"
+    | string;
+
+export interface CustomerItem {
+    customerId: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber?: string;
+    email: string;
+    status: CustomerVerificationStatus;
+    createdAt: string;
+    updatedAt: string;
+    orderCount?: number;
+    totalSpent?: string | number;
+}
+
+export interface CustomerAddress {
+    addressId: string;
+    label?: string | null;
+    firstName: string;
+    lastName: string;
+    phoneNumber?: string;
+    addressLine1: string;
+    addressLine2?: string | null;
+    city: string;
+    state: string;
+    postalCode?: string | null;
+    country: string;
+    isDefault?: boolean;
+}
+
+export interface CustomerOrderItem {
+    orderItemId: string;
+    productName: string;
+    sellingUnitName?: string;
+    sku?: string;
+    unitPrice: string | number;
+    quantity: number;
+    lineTotal: string | number;
+}
+
+export interface CustomerOrder {
+    orderId: string;
+    orderNumber: string;
+    currency?: string;
+    subtotal: string | number;
+    deliveryFee: string | number;
+    total: string | number;
+    status:
+        | "processing"
+        | "shipped"
+        | "delivered"
+        | "cancelled"
+        | "pending"
+        | string;
+    createdAt: string;
+    paidAt?: string | null;
+    items?: CustomerOrderItem[];
+}
+
+export interface CustomerSummary {
+    totalOrders: number;
+    activeOrders: number;
+    totalSpent: string | number;
+}
+
+export interface CustomerStatistics {
+    totalCustomers: number;
+    verifiedCustomers: number;
+    pendingCustomers: number;
+}
+
+export interface GetCustomersParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: "verified" | "pending_verification" | string;
+}
+
+export type AdminCustomerListResponse = ApiResponse<{
+    customers: CustomerItem[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+}>;
+
+export type AdminCustomerDetailResponse = ApiResponse<{
+    customer: CustomerItem;
+    addresses: CustomerAddress[];
+    orders: CustomerOrder[];
+    summary: CustomerSummary;
+}>;
+
+export type AdminCustomerStatisticsResponse = ApiResponse<{
+    statistics: CustomerStatistics;
+}>;

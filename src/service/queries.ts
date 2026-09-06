@@ -6,12 +6,17 @@ import {
     getAdminCategoryByIdFunc,
     getAdminBrandsFunc,
     getAdminBrandByIdFunc,
+    getAdminProductsFunc,
+    getAdminProductByIdFunc,
     getPublicCategoriesFunc,
     getPublicBrandsFunc,
     getPublicProductsFunc,
     getPublicProductBySlugFunc,
+    getAdminCustomersFunc,
+    getAdminCustomerByIdFunc,
+    getAdminCustomerStatisticsFunc,
 } from "./apiFunc";
-import type { GetProductsParams } from "./types";
+import type { GetProductsParams, GetCustomersParams } from "./types";
 
 // ============================================================================
 // Query Keys
@@ -24,11 +29,20 @@ export const queryKeys = {
         ["admin", "categories", categoryId] as const,
     adminBrands: ["admin", "brands"] as const,
     adminBrand: (brandId: string) => ["admin", "brands", brandId] as const,
+    adminProducts: (params?: GetProductsParams) =>
+        ["admin", "products", params] as const,
+    adminProduct: (productId: string) =>
+        ["admin", "products", productId] as const,
     publicCategories: ["categories"] as const,
     publicBrands: ["brands"] as const,
     publicProducts: (params?: GetProductsParams) =>
         ["products", params] as const,
     publicProduct: (slug: string) => ["products", slug] as const,
+    adminCustomers: (params?: GetCustomersParams) =>
+        ["admin", "customers", params] as const,
+    adminCustomer: (customerId: string) =>
+        ["admin", "customers", customerId] as const,
+    adminCustomerStatistics: ["admin", "customers", "statistics"] as const,
 };
 
 // ============================================================================
@@ -148,3 +162,65 @@ export const useGetPublicProduct = (slug: string) => {
         enabled: Boolean(slug),
     });
 };
+
+// ============================================================================
+// 5. Admin Products Queries
+// ============================================================================
+
+/**
+ * Hook to fetch products list in admin portal with optional query params
+ */
+export const useGetAdminProducts = (params?: GetProductsParams) => {
+    return useQuery({
+        queryKey: queryKeys.adminProducts(params),
+        queryFn: () => getAdminProductsFunc(params),
+    });
+};
+
+/**
+ * Hook to fetch a single admin product by ID
+ */
+export const useGetAdminProduct = (productId: string) => {
+    return useQuery({
+        queryKey: queryKeys.adminProduct(productId),
+        queryFn: () => getAdminProductByIdFunc(productId),
+        enabled: Boolean(productId),
+    });
+};
+
+// ============================================================================
+// 6. Admin Customers Queries
+// ============================================================================
+
+/**
+ * Hook to fetch customers list in admin portal with optional query params (page, limit, search, status)
+ */
+export const useGetAdminCustomers = (params?: GetCustomersParams) => {
+    return useQuery({
+        queryKey: queryKeys.adminCustomers(params),
+        queryFn: () => getAdminCustomersFunc(params),
+    });
+};
+
+/**
+ * Hook to fetch customer details by ID (profile, addresses, order history, summary)
+ */
+export const useGetAdminCustomer = (customerId: string) => {
+    return useQuery({
+        queryKey: queryKeys.adminCustomer(customerId),
+        queryFn: () => getAdminCustomerByIdFunc(customerId),
+        enabled: Boolean(customerId),
+    });
+};
+
+/**
+ * Hook to fetch customer statistics for admin dashboard
+ */
+export const useGetAdminCustomerStatistics = () => {
+    return useQuery({
+        queryKey: queryKeys.adminCustomerStatistics,
+        queryFn: () => getAdminCustomerStatisticsFunc(),
+    });
+};
+
+

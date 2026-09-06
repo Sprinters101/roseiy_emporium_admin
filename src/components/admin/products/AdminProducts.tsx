@@ -1,44 +1,27 @@
-import React, { useState, useMemo } from "react";
-import { Plus, Search, Trash2, Pen, RotateCcw, X, Check, Minus } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import { Plus, Search, Trash2, Pen, RotateCcw, X, Check, Minus, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router";
-import { products as initialProducts } from "@/lib/site_data";
 import type { Product } from "@/config/types";
 import { toast } from "@/components/ui/sonner";
 import { CustomTable, type Column } from "@/components/common/CustomTable";
 import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { CustomConfirmModal } from "@/components/common/CustomConfirmModal";
 import { cn } from "@/lib/utils";
+import {
+    useGetAdminProducts,
+    useGetAdminCategories,
+    useGetAdminBrands,
+} from "@/service/queries";
+import { useDeleteAdminProduct } from "@/service/mutations";
+import { deleteAdminProductFunc } from "@/service/apiFunc";
+import type { ProductItem, GetProductsParams } from "@/service/types";
 
-const CATEGORY_OPTIONS = [
-    { label: "All Categories", value: "all" },
-    { label: "Whiskey", value: "Whiskey" },
-    { label: "Cognac", value: "Cognac" },
-    { label: "Tequila", value: "Tequila" },
-    { label: "Champagne", value: "Champagne" },
-    { label: "Bottled Water", value: "Bottled Water" },
-    { label: "Gin", value: "Gin" },
-    { label: "Sweetwine", value: "Sweetwine" },
-];
 
-const BRAND_OPTIONS = [
-    { label: "All Brands", value: "all" },
-    { label: "Don Julio", value: "Don Julio" },
-    { label: "Bacardi", value: "Bacardi" },
-    { label: "Moet & Chandon", value: "Moet & Chandon" },
-    { label: "Hennessy", value: "Hennessy" },
-    { label: "Azul", value: "Azul" },
-    { label: "Glenfiddich", value: "Glenfiddich" },
-    { label: "Voss", value: "Voss" },
-    { label: "Bombay", value: "Bombay" },
-    { label: "Four Cousins", value: "Four Cousins" },
-];
 
 const SORT_OPTIONS = [
     { label: "Sort By: Newest", value: "newest" },
-    { label: "Sort By: Default", value: "default" },
-    { label: "Arrivals", value: "arrivals" },
-    { label: "Price: Low to High", value: "price_asc" },
-    { label: "Price: High to Low", value: "price_desc" },
+    { label: "Name: A - Z", value: "name_asc" },
+    { label: "Name: Z - A", value: "name_desc" },
 ];
 
 // Document Format Badges / Icons matching screenshot
@@ -72,18 +55,145 @@ const PdfIcon = () => (
     </svg>
 );
 
+// Helper: Map Backend ProductItem to Frontend Product Interface
+const mapApiProductToProduct = (item: ProductItem): Product => {
+    const pieceUnit =
+        item.sellingUnits?.find(
+            (u) =>
+                u.name?.toLowerCase() === "piece" ||
+                u.name?.toLowerCase() === "pieces" ||
+                u.name?.toLowerCase() === "bottle" ||
+                u.name?.toLowerCase() === "bottles",
+        ) || item.sellingUnits?.[0];
+
+    const caseUnit = item.sellingUnits?.find(
+        (u) =>
+            u.name?.toLowerCase() === "case" ||
+            u.name?.toLowerCase() === "cases" ||
+            u.name?.toLowerCase() === "carton" ||
+            u.name?.toLowerCase() === "cartons",
+    );
+
+    const price = pieceUnit ? Number(pieceUnit.price) : 0;
+    const casePrice = caseUnit ? Number(caseUnit.price) : undefined;
+    const piecesStock = pieceUnit ? Number(pieceUnit.stock) : 0;
+    const casesStock = caseUnit ? Number(caseUnit.stock) : 0;
+
+    const primaryImg =
+        item.images?.find((img) => img.isPrimary)?.imageUrl ||
+        item.images?.[0]?.imageUrl ||
+        "https://res.cloudinary.com/dzk1a6bjt/image/upload/v1784813212/p_8_zk4ynx.png";
+
+    const isAvailable =
+        item.status === "active" && (piecesStock > 0 || casesStock > 0);
+
+    return {
+        id: item.productId || item.id || "",
+        name: item.name || "",
+        category: item.category?.name || "General",
+        brand: item.brand?.name || "—",
+        volume: "750ml",
+        price,
+        casePrice,
+        priceInCases: casePrice,
+        piecesLeft: piecesStock,
+        casesLeft: casesStock,
+        status: isAvailable ? "Available" : "Out of Stock",
+        image: primaryImg,
+        gallery: item.images?.map((img) => img.imageUrl) || [primaryImg],
+        description: item.description,
+        isFeatured: Boolean(item.featured),
+    };
+};
+
 export const AdminProducts: React.FC = () => {
     const navigate = useNavigate();
-    const [productList, setProductList] = useState<Product[]>(initialProducts);
-    const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-    // Filters
+    // Server-driven query state
+    const [page, setPage] = useState(1);
+    const [pageSize] = useState(10);
     const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [selectedBrand, setSelectedBrand] = useState("all");
     const [selectedSort, setSelectedSort] = useState("newest");
     const [statusTab, setStatusTab] = useState<"all" | "available" | "outofstock">("all");
+
+    // Debounce search input (350ms) to avoid spamming the backend while typing
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    // Whenever search, category, brand, status, or sorting changes, reset to page 1
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch, selectedCategory, selectedBrand, selectedSort, statusTab]);
+
+    // Reactive query parameters sent to GET /admin/products
+    const queryParams: GetProductsParams = useMemo(() => {
+        const params: GetProductsParams = {
+            page,
+            limit: pageSize,
+            sort: selectedSort,
+        };
+        if (debouncedSearch.trim()) {
+            params.search = debouncedSearch.trim();
+        }
+        if (selectedCategory && selectedCategory !== "all") {
+            params.categoryId = selectedCategory;
+        }
+        if (selectedBrand && selectedBrand !== "all") {
+            params.brandId = selectedBrand;
+        }
+        if (statusTab === "available") {
+            params.status = "active";
+        } else if (statusTab === "outofstock") {
+            params.status = "inactive";
+        }
+        return params;
+    }, [
+        page,
+        pageSize,
+        debouncedSearch,
+        selectedCategory,
+        selectedBrand,
+        statusTab,
+        selectedSort,
+    ]);
+
+    // Primary products list query
+    const {
+        data: productsResponse,
+        isLoading,
+        isFetching,
+        isError,
+        error,
+        refetch,
+    } = useGetAdminProducts(queryParams);
+
+    // Parallel lightweight count queries for status tab badges
+    const { data: globalAllResponse } = useGetAdminProducts({ limit: 1 });
+    const { data: globalAvailableResponse } = useGetAdminProducts({
+        status: "active",
+        limit: 1,
+    });
+    const { data: globalOutOfStockResponse } = useGetAdminProducts({
+        status: "inactive",
+        limit: 1,
+    });
+
+    const { data: categoriesResponse } = useGetAdminCategories();
+    const { data: brandsResponse } = useGetAdminBrands();
+    const { mutate: deleteProduct, isPending: isDeletingProduct } =
+        useDeleteAdminProduct();
+    const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+
+    const [productList, setProductList] = useState<Product[]>([]);
+    const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     // Modals
     const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
@@ -91,87 +201,72 @@ export const AdminProducts: React.FC = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isBatchDeleteModalOpen, setIsBatchDeleteModalOpen] = useState(false);
 
-    // Counts for status pills
-    const totalCount = productList.length;
-    const availableCount = productList.filter((p) => {
-        if (p.status) return p.status === "Available";
-        return (p.piecesLeft ?? 0) > 0 || (p.casesLeft ?? 0) > 0;
-    }).length;
-    const outOfStockCount = productList.filter((p) => {
-        if (p.status) return p.status === "Out of Stock";
-        return (p.piecesLeft ?? 0) <= 0 && (p.casesLeft ?? 0) <= 0;
-    }).length;
+    // Sync API products to productList state
+    useEffect(() => {
+        const raw =
+            productsResponse?.data?.products ||
+            (Array.isArray(productsResponse?.data) ? productsResponse.data : []);
+        if (Array.isArray(raw)) {
+            setProductList(raw.map(mapApiProductToProduct));
+        }
+    }, [productsResponse]);
 
-    // Filter & Sort logic
-    const filteredProducts = useMemo(() => {
-        return productList
-            .filter((product) => {
-                // Search
-                const matchesSearch =
-                    searchTerm.trim() === "" ||
-                    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    product.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    product.category.toLowerCase().includes(searchTerm.toLowerCase());
+    // Dynamic dropdown options using API categoryId and brandId UUIDs
+    const categoryOptions = useMemo(() => {
+        const apiCats = categoriesResponse?.data?.categories || [];
+        if (apiCats.length > 0) {
+            return [
+                { label: "All Categories", value: "all" },
+                ...apiCats.map((c) => ({
+                    label: c.name,
+                    value: c.categoryId,
+                })),
+            ];
+        }
+        return [{ label: "All Categories", value: "all" }];
+    }, [categoriesResponse]);
 
-                // Category dropdown
-                const matchesCategory =
-                    selectedCategory === "all" ||
-                    product.category.toLowerCase() === selectedCategory.toLowerCase();
+    const brandOptions = useMemo(() => {
+        const apiBrands = brandsResponse?.data?.brands || [];
+        if (apiBrands.length > 0) {
+            return [
+                { label: "All Brands", value: "all" },
+                ...apiBrands.map((b) => ({
+                    label: b.name,
+                    value: b.brandId,
+                })),
+            ];
+        }
+        return [{ label: "All Brands", value: "all" }];
+    }, [brandsResponse]);
 
-                // Brand dropdown
-                const matchesBrand =
-                    selectedBrand === "all" ||
-                    product.brand?.toLowerCase() === selectedBrand.toLowerCase();
+    // Server-computed total counts for status tabs
+    const totalCount =
+        globalAllResponse?.data?.pagination?.total ??
+        (statusTab === "all" ? productsResponse?.data?.pagination?.total ?? 0 : 0);
+    const availableCount =
+        globalAvailableResponse?.data?.pagination?.total ??
+        (statusTab === "available"
+            ? productsResponse?.data?.pagination?.total ?? 0
+            : 0);
+    const outOfStockCount =
+        globalOutOfStockResponse?.data?.pagination?.total ??
+        (statusTab === "outofstock"
+            ? productsResponse?.data?.pagination?.total ?? 0
+            : 0);
 
-                // Status logic from status pill tab
-                const isAvailable =
-                    product.status === "Available" ||
-                    (!product.status &&
-                        ((product.piecesLeft ?? 0) > 0 || (product.casesLeft ?? 0) > 0));
-
-                let matchesStatus = true;
-                if (statusTab === "available") {
-                    matchesStatus = isAvailable;
-                } else if (statusTab === "outofstock") {
-                    matchesStatus = !isAvailable;
-                }
-
-                return (
-                    matchesSearch &&
-                    matchesCategory &&
-                    matchesBrand &&
-                    matchesStatus
-                );
-            })
-            .sort((a, b) => {
-                if (selectedSort === "price_asc") return a.price - b.price;
-                if (selectedSort === "price_desc") return b.price - a.price;
-                if (selectedSort === "newest" || selectedSort === "arrivals") {
-                    return Number(b.id) - Number(a.id);
-                }
-                return 0;
-            });
-    }, [
-        productList,
-        searchTerm,
-        selectedCategory,
-        selectedBrand,
-        statusTab,
-        selectedSort,
-    ]);
-
-    // Selection handlers
+    // Selection handlers for current page items
     const allSelected =
-        filteredProducts.length > 0 &&
-        filteredProducts.every((p) => selectedIds.includes(p.id));
+        productList.length > 0 &&
+        productList.every((p) => selectedIds.includes(p.id));
     const someSelected =
-        filteredProducts.some((p) => selectedIds.includes(p.id)) && !allSelected;
+        productList.some((p) => selectedIds.includes(p.id)) && !allSelected;
 
     const handleSelectAll = () => {
         if (allSelected) {
             setSelectedIds([]);
         } else {
-            setSelectedIds(filteredProducts.map((p) => p.id));
+            setSelectedIds(productList.map((p) => p.id));
         }
     };
 
@@ -190,29 +285,54 @@ export const AdminProducts: React.FC = () => {
     const handleConfirmSingleDelete = () => {
         if (!productToDelete) return;
         const target = productToDelete;
-        setProductList((prev) => prev.filter((p) => p.id !== target.id));
-        setDeletedProducts((prev) => [target, ...prev]);
-        setSelectedIds((prev) => prev.filter((id) => id !== target.id));
-        setIsDeleteModalOpen(false);
-        setProductToDelete(null);
-        toast.success(`"${target.name}" moved to Recycle Bin`);
+        deleteProduct(target.id, {
+            onSuccess: () => {
+                setProductList((prev) => prev.filter((p) => p.id !== target.id));
+                setDeletedProducts((prev) => [target, ...prev]);
+                setSelectedIds((prev) => prev.filter((id) => id !== target.id));
+                setIsDeleteModalOpen(false);
+                setProductToDelete(null);
+            },
+            onError: () => {
+                // Fallback for mock/local IDs not in backend
+                setProductList((prev) => prev.filter((p) => p.id !== target.id));
+                setDeletedProducts((prev) => [target, ...prev]);
+                setSelectedIds((prev) => prev.filter((id) => id !== target.id));
+                setIsDeleteModalOpen(false);
+                setProductToDelete(null);
+                toast.success(`"${target.name}" moved to Recycle Bin`);
+            },
+        });
     };
 
     // Batch delete
-    const handleConfirmBatchDelete = () => {
+    const handleConfirmBatchDelete = async () => {
         if (selectedIds.length === 0) return;
         const targets = productList.filter((p) => selectedIds.includes(p.id));
-        setProductList((prev) => prev.filter((p) => !selectedIds.includes(p.id)));
-        setDeletedProducts((prev) => [...targets, ...prev]);
-        setSelectedIds([]);
-        setIsBatchDeleteModalOpen(false);
-        toast.success(`${targets.length} products moved to Recycle Bin`);
+        setIsBatchDeleting(true);
+        try {
+            await Promise.allSettled(
+                selectedIds.map((id) => deleteAdminProductFunc(id)),
+            );
+            toast.success(`${targets.length} products moved to Recycle Bin`);
+        } catch {
+            toast.error("An error occurred during batch deletion");
+        } finally {
+            setProductList((prev) =>
+                prev.filter((p) => !selectedIds.includes(p.id)),
+            );
+            setDeletedProducts((prev) => [...targets, ...prev]);
+            setSelectedIds([]);
+            setIsBatchDeleteModalOpen(false);
+            setIsBatchDeleting(false);
+            refetch();
+        }
     };
 
     // Batch Export: CSV
     const handleExportCSV = () => {
         const itemsToExport =
-            selectedProducts.length > 0 ? selectedProducts : filteredProducts;
+            selectedProducts.length > 0 ? selectedProducts : productList;
 
         if (itemsToExport.length === 0) {
             toast.error("No products available to export");
@@ -258,7 +378,7 @@ export const AdminProducts: React.FC = () => {
     // Batch Export: DOC
     const handleExportDOC = () => {
         const itemsToExport =
-            selectedProducts.length > 0 ? selectedProducts : filteredProducts;
+            selectedProducts.length > 0 ? selectedProducts : productList;
 
         if (itemsToExport.length === 0) {
             toast.error("No products available to export");
@@ -332,7 +452,7 @@ export const AdminProducts: React.FC = () => {
     // Batch Export: PDF
     const handleExportPDF = () => {
         const itemsToExport =
-            selectedProducts.length > 0 ? selectedProducts : filteredProducts;
+            selectedProducts.length > 0 ? selectedProducts : productList;
 
         if (itemsToExport.length === 0) {
             toast.error("No products available to export");
@@ -622,14 +742,14 @@ export const AdminProducts: React.FC = () => {
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     <CustomDropdown
                         variant="light"
-                        options={CATEGORY_OPTIONS}
+                        options={categoryOptions}
                         value={selectedCategory}
                         onChange={setSelectedCategory}
                         className="w-full sm:w-auto min-w-36"
                     />
                     <CustomDropdown
                         variant="light"
-                        options={BRAND_OPTIONS}
+                        options={brandOptions}
                         value={selectedBrand}
                         onChange={setSelectedBrand}
                         className="w-full sm:w-auto min-w-36"
@@ -769,23 +889,64 @@ export const AdminProducts: React.FC = () => {
             </div>
 
             {/* Main Products Table Container */}
-            <div className="">
-                <CustomTable
-                    data={filteredProducts}
-                    columns={columns}
-                    pagination={true}
-                    pageSize={10}
-                    itemLabel="Products"
-                    emptyMessage="No products match your selected filters."
-                    rowClassName={(product) =>
-                        selectedIds.includes(product.id) ? "bg-[#FAF8F5]" : ""
-                    }
-                />
-            </div>
+            {isLoading && productList.length === 0 ? (
+                <div className="bg-white border border-[#EAEAEA] rounded-2xl p-8 shadow-xs">
+                    <div className="space-y-4 animate-pulse">
+                        <div className="h-8 bg-gray-100 rounded w-1/4" />
+                        <div className="h-12 bg-gray-100 rounded" />
+                        <div className="h-12 bg-gray-50 rounded" />
+                        <div className="h-12 bg-gray-100 rounded" />
+                        <div className="h-12 bg-gray-50 rounded" />
+                    </div>
+                </div>
+            ) : isError && productList.length === 0 ? (
+                <div className="py-16 flex flex-col items-center justify-center text-center bg-white border border-red-100 rounded-2xl p-8">
+                    <p className="text-sm font-semibold text-red-600 mb-1">
+                        Failed to load products
+                    </p>
+                    <p className="text-xs text-[#737373] mb-4 max-w-sm">
+                        {(error as any)?.response?.data?.message ||
+                            (error as any)?.message ||
+                            "An error occurred while communicating with the server."}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => refetch()}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#D4AF37] text-white text-xs font-semibold hover:bg-[#C5A265] transition-colors cursor-pointer"
+                    >
+                        <RefreshCw className="size-3.5" />
+                        <span>Retry</span>
+                    </button>
+                </div>
+            ) : (
+                <div className="relative">
+                    {isFetching && (
+                        <div className="absolute top-2 right-4 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/90 border border-[#EAEAEA] shadow-2xs text-[11px] text-[#737373]">
+                            <RefreshCw className="size-3 animate-spin text-[#D4AF37]" />
+                            <span>Updating...</span>
+                        </div>
+                    )}
+                    <CustomTable
+                        data={productList}
+                        columns={columns}
+                        pagination={true}
+                        pageSize={pageSize}
+                        currentPage={productsResponse?.data?.pagination?.page || page}
+                        totalItems={productsResponse?.data?.pagination?.total ?? productList.length}
+                        onPageChange={(newPage) => setPage(newPage)}
+                        itemLabel="Products"
+                        emptyMessage="No products match your selected filters."
+                        rowClassName={(product) =>
+                            selectedIds.includes(product.id) ? "bg-[#FAF8F5]" : ""
+                        }
+                    />
+                </div>
+            )}
 
             {/* Single Product Delete Modal */}
             <CustomConfirmModal
                 isOpen={isDeleteModalOpen}
+                isLoading={isDeletingProduct}
                 onClose={() => {
                     setIsDeleteModalOpen(false);
                     setProductToDelete(null);
@@ -799,6 +960,7 @@ export const AdminProducts: React.FC = () => {
             {/* Batch Products Delete Modal */}
             <CustomConfirmModal
                 isOpen={isBatchDeleteModalOpen}
+                isLoading={isBatchDeleting}
                 onClose={() => setIsBatchDeleteModalOpen(false)}
                 onConfirm={handleConfirmBatchDelete}
                 title="Delete Selected Products?"

@@ -1,8 +1,16 @@
-import React, { useMemo } from "react";
-import { ArrowLeft, ShoppingBag, Coins, Calendar, MapPin } from "lucide-react";
+import React from "react";
+import {
+    ArrowLeft,
+    ShoppingBag,
+    Coins,
+    Calendar,
+    MapPin,
+    RefreshCw,
+    Package,
+} from "lucide-react";
 import { useNavigate, useParams } from "react-router";
-import { initialCustomersList, type CustomerData } from "./AdminCustomers";
 import { cn } from "@/lib/utils";
+import { useGetAdminCustomer } from "@/service/queries";
 
 export interface CustomerOrderHistoryItem {
     id: string;
@@ -14,55 +22,7 @@ export interface CustomerOrderHistoryItem {
     orderProgress: "In Transit" | "Delivered" | "Failed" | "Order Placed";
 }
 
-const mockCustomerOrders: CustomerOrderHistoryItem[] = [
-    {
-        id: "RE-2026-7890",
-        sn: "01",
-        orderId: "Order RE-2026-7890",
-        date: "25th July, 2024",
-        amount: 75000,
-        paymentStatus: "Paid",
-        orderProgress: "In Transit",
-    },
-    {
-        id: "RE-2026-7892",
-        sn: "02",
-        orderId: "Order RE-2026-7892",
-        date: "26th July, 2024",
-        amount: 3125000,
-        paymentStatus: "Paid",
-        orderProgress: "Delivered",
-    },
-    {
-        id: "RE-2026-7891",
-        sn: "03",
-        orderId: "Order RE-2026-7891",
-        date: "27th July, 2024",
-        amount: 120000,
-        paymentStatus: "Paid",
-        orderProgress: "Failed",
-    },
-    {
-        id: "RE-2026-7890-2",
-        sn: "04",
-        orderId: "Order RE-2026-7890",
-        date: "25th July, 2024",
-        amount: 5000000,
-        paymentStatus: "Paid",
-        orderProgress: "Delivered",
-    },
-    {
-        id: "RE-2026-7893",
-        sn: "05",
-        orderId: "Order RE-2026-7893",
-        date: "28th July, 2024",
-        amount: 1225000,
-        paymentStatus: "Paid",
-        orderProgress: "Delivered",
-    },
-];
-
-// Empty Order Box Illustration matching screenshot 5
+// Empty Order Box Illustration matching theme design
 const EmptyOrderBoxIllustration = () => (
     <div className="relative size-36 flex items-center justify-center mx-auto mb-2">
         <div className="absolute inset-0 bg-[#FAF3E0] rounded-full filter blur-sm opacity-90 scale-95" />
@@ -87,20 +47,97 @@ const EmptyOrderBoxIllustration = () => (
     </div>
 );
 
+const formatDate = (isoString?: string) => {
+    if (!isoString) return "-";
+    try {
+        const d = new Date(isoString);
+        if (isNaN(d.getTime())) return isoString;
+        return d.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+        });
+    } catch {
+        return isoString;
+    }
+};
+
+const formatCurrency = (amount?: string | number) => {
+    const num = Number(amount || 0);
+    return `₦${num.toLocaleString("en-NG", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })}`;
+};
+
 export const AdminCustomerDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
-    // Find customer by id or fallback to John Amadi
-    const customer: CustomerData = useMemo(() => {
-        const found = initialCustomersList.find((c) => c.id === id);
-        if (found) return found;
-        return initialCustomersList[0];
-    }, [id]);
+    const {
+        data: customerResponse,
+        isLoading,
+        isError,
+        error,
+        refetch,
+    } = useGetAdminCustomer(id || "");
 
-    const isDaisyDine = customer.id === "6" || customer.totalOrders === 0;
+    const customer = customerResponse?.data?.customer;
+    const addresses = customerResponse?.data?.addresses || [];
+    const orders = customerResponse?.data?.orders || [];
+    const summary = customerResponse?.data?.summary;
 
-    const ordersList = isDaisyDine ? [] : mockCustomerOrders;
+    if (isLoading) {
+        return (
+            <div className="space-y-6 animate-pulse pb-12">
+                <div className="space-y-2">
+                    <div className="h-6 w-32 bg-gray-200 rounded" />
+                    <div className="h-4 w-64 bg-gray-100 rounded" />
+                </div>
+                <div className="h-28 bg-[#FAF7F2] rounded-2xl border border-[#F0EBE0]" />
+                <div className="h-44 bg-white rounded-2xl border border-[#EAEAEA]" />
+                <div className="h-44 bg-white rounded-2xl border border-[#EAEAEA]" />
+            </div>
+        );
+    }
+
+    if (isError || !customer) {
+        return (
+            <div className="py-20 flex flex-col items-center justify-center text-center bg-white border border-[#EAEAEA] rounded-2xl p-8 max-w-lg mx-auto mt-8">
+                <p className="text-base font-semibold text-red-600 mb-1">
+                    {isError
+                        ? "Failed to load customer details"
+                        : "Customer not found"}
+                </p>
+                <p className="text-xs text-[#737373] mb-5">
+                    {(error as any)?.response?.data?.message ||
+                        (error as any)?.message ||
+                        "The requested customer account could not be found or retrieved."}
+                </p>
+                <div className="flex items-center gap-3">
+                    {isError && (
+                        <button
+                            type="button"
+                            onClick={() => refetch()}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#D4AF37] text-white text-xs font-semibold hover:bg-[#C5A265] transition-colors cursor-pointer"
+                        >
+                            <RefreshCw className="size-3.5" />
+                            <span>Retry</span>
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => navigate("/customers")}
+                        className="px-4 py-2 rounded-lg bg-white border border-[#E5E5E5] text-xs font-semibold text-[#171717] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
+                    >
+                        Back to Customers
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    const isVerified = customer.status === "verified";
 
     return (
         <div className="space-y-6 animate-fadeIn pb-12">
@@ -114,12 +151,36 @@ export const AdminCustomerDetails: React.FC = () => {
                 >
                     <ArrowLeft className="size-5" />
                 </button>
-                <h1 className="text-2xl sm:text-3xl font-bold font-playfair text-[#171717]">
-                    Customer Details
-                </h1>
-                <p className="text-xs sm:text-sm text-[#737373] font-hanken mt-1">
-                    View customer information , order history and addresses.
-                </p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-bold font-playfair text-[#171717]">
+                            Customer Details
+                        </h1>
+                        <p className="text-xs sm:text-sm text-[#737373] font-hanken mt-1">
+                            View customer profile, saved delivery addresses, and
+                            order history.
+                        </p>
+                    </div>
+
+                    <span
+                        className={cn(
+                            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold capitalize",
+                            isVerified
+                                ? "bg-[#EAF7EE] text-[#1E7E34] border border-[#C3E6CB]"
+                                : "bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]",
+                        )}
+                    >
+                        <span
+                            className={cn(
+                                "size-1.5 rounded-full",
+                                isVerified ? "bg-[#1E7E34]" : "bg-[#D97706]",
+                            )}
+                        />
+                        {isVerified
+                            ? "Verified Customer"
+                            : "Pending Verification"}
+                    </span>
+                </div>
             </div>
 
             {/* Top KPI Metrics Banner */}
@@ -127,7 +188,7 @@ export const AdminCustomerDetails: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#EAE2D2] gap-6 md:gap-0">
                     {/* 1. Total Orders */}
                     <div className="flex items-center gap-4 md:px-6 first:pl-0">
-                        <div className="size-12 rounded-full bg-[#171717] flex items-center justify-center text-gold-500 shrink-0">
+                        <div className="size-12 rounded-full bg-[#171717] flex items-center justify-center text-[#D4AF37] shrink-0">
                             <ShoppingBag className="size-5" />
                         </div>
                         <div>
@@ -135,17 +196,19 @@ export const AdminCustomerDetails: React.FC = () => {
                                 Total Orders
                             </span>
                             <span className="text-2xl sm:text-3xl font-bold text-[#171717] font-hanken block mt-0.5">
-                                {customer.totalOrders}
+                                {summary?.totalOrders ??
+                                    customer.orderCount ??
+                                    0}
                             </span>
                             <span className="text-[11px] text-[#888888] block mt-0.5">
-                                Updated few seconds ago
+                                All-time registered orders
                             </span>
                         </div>
                     </div>
 
                     {/* 2. Total Spent */}
                     <div className="flex items-center gap-4 md:px-6 pt-4 md:pt-0">
-                        <div className="size-12 rounded-full bg-[#171717] flex items-center justify-center text-gold-500 shrink-0">
+                        <div className="size-12 rounded-full bg-[#171717] flex items-center justify-center text-[#D4AF37] shrink-0">
                             <Coins className="size-5" />
                         </div>
                         <div>
@@ -153,28 +216,30 @@ export const AdminCustomerDetails: React.FC = () => {
                                 Total Spent
                             </span>
                             <span className="text-2xl sm:text-3xl font-bold text-[#171717] font-hanken block mt-0.5">
-                                ₦{customer.totalSpent.toLocaleString("en-NG")}
+                                {formatCurrency(
+                                    summary?.totalSpent ?? customer.totalSpent,
+                                )}
                             </span>
                             <span className="text-[11px] text-[#888888] block mt-0.5">
-                                Updated few seconds ago
+                                Completed & active orders
                             </span>
                         </div>
                     </div>
 
-                    {/* 3. Last Order */}
+                    {/* 3. Active Orders */}
                     <div className="flex items-center gap-4 md:px-6 pt-4 md:pt-0">
-                        <div className="size-12 rounded-full bg-[#171717] flex items-center justify-center text-gold-500 shrink-0">
+                        <div className="size-12 rounded-full bg-[#171717] flex items-center justify-center text-[#D4AF37] shrink-0">
                             <Calendar className="size-5" />
                         </div>
                         <div>
                             <span className="text-xs text-[#737373] block font-medium">
-                                Last Order
+                                Active Orders
                             </span>
                             <span className="text-2xl sm:text-3xl font-bold text-[#171717] font-hanken block mt-0.5">
-                                {customer.lastOrder || "2 Days Ago"}
+                                {summary?.activeOrders ?? 0}
                             </span>
                             <span className="text-[11px] text-[#888888] block mt-0.5">
-                                Updated few seconds ago
+                                Processing or in-transit
                             </span>
                         </div>
                     </div>
@@ -199,7 +264,7 @@ export const AdminCustomerDetails: React.FC = () => {
                                 Customer Name
                             </span>
                             <span className="text-sm font-bold text-[#171717] block mt-1">
-                                {customer.name}
+                                {customer.firstName} {customer.lastName}
                             </span>
                         </div>
 
@@ -208,7 +273,7 @@ export const AdminCustomerDetails: React.FC = () => {
                                 Phone Number
                             </span>
                             <span className="text-sm font-bold text-[#171717] block mt-1">
-                                {customer.phone}
+                                {customer.phoneNumber || "-"}
                             </span>
                         </div>
 
@@ -226,7 +291,7 @@ export const AdminCustomerDetails: React.FC = () => {
                                 Date Joined
                             </span>
                             <span className="text-sm font-bold text-[#171717] block mt-1">
-                                12 February 2025
+                                {formatDate(customer.createdAt)}
                             </span>
                         </div>
                     </div>
@@ -244,11 +309,11 @@ export const AdminCustomerDetails: React.FC = () => {
                     </h2>
                 </div>
 
-                {customer.addresses && customer.addresses.length > 0 ? (
+                {addresses.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                        {customer.addresses.map((addr, idx) => (
+                        {addresses.map((addr, idx) => (
                             <div
-                                key={addr.id || idx}
+                                key={addr.addressId || idx}
                                 className="bg-white border border-[#EAEAEA] rounded-2xl p-5 shadow-xs flex items-start gap-3.5"
                             >
                                 <div className="size-10 rounded-full bg-[#FAF7F2] border border-[#F0EBE0] flex items-center justify-center text-[#171717] shrink-0 mt-0.5">
@@ -257,72 +322,47 @@ export const AdminCustomerDetails: React.FC = () => {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between">
                                         <h4 className="text-sm font-bold text-[#171717]">
-                                            {addr.title}
+                                            {addr.label || `Address ${idx + 1}`}
                                         </h4>
+                                        {addr.isDefault && (
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#10B981]">
+                                                <span className="size-1.5 rounded-full bg-[#10B981]" />
+                                                Default
+                                            </span>
+                                        )}
                                     </div>
-                                    <p className="text-xs text-[#737373] mt-1 leading-relaxed">
-                                        {addr.address}
+                                    <p className="text-xs font-medium text-[#171717] mt-1">
+                                        {addr.firstName} {addr.lastName}{" "}
+                                        {addr.phoneNumber &&
+                                            `(${addr.phoneNumber})`}
                                     </p>
-                                    {addr.isDefault && (
-                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#10B981] mt-2">
-                                            <span className="size-1.5 rounded-full bg-[#10B981]" />
-                                            Default
-                                        </span>
-                                    )}
+                                    <p className="text-xs text-[#737373] mt-1 leading-relaxed">
+                                        {addr.addressLine1}
+                                        {addr.addressLine2
+                                            ? `, ${addr.addressLine2}`
+                                            : ""}
+                                    </p>
+                                    <p className="text-xs text-[#737373] leading-relaxed">
+                                        {addr.city}, {addr.state}
+                                        {addr.postalCode
+                                            ? ` - ${addr.postalCode}`
+                                            : ""}
+                                        , {addr.country}
+                                    </p>
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                        <div className="bg-white border border-[#EAEAEA] rounded-2xl p-5 shadow-xs flex items-start gap-3.5">
-                            <div className="size-10 rounded-full bg-[#FAF7F2] border border-[#F0EBE0] flex items-center justify-center text-[#171717] shrink-0 mt-0.5">
-                                <MapPin className="size-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-bold text-[#171717]">
-                                    Shipping Address 1
-                                </h4>
-                                <p className="text-xs text-[#737373] mt-1 leading-relaxed">
-                                    Plot 8 Augustus Alakiya Close, Ogombo, Lekki
-                                    Lagos
-                                </p>
-                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#10B981] mt-2">
-                                    <span className="size-1.5 rounded-full bg-[#10B981]" />
-                                    Default
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="bg-white border border-[#EAEAEA] rounded-2xl p-5 shadow-xs flex items-start gap-3.5">
-                            <div className="size-10 rounded-full bg-[#FAF7F2] border border-[#F0EBE0] flex items-center justify-center text-[#171717] shrink-0 mt-0.5">
-                                <MapPin className="size-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-bold text-[#171717]">
-                                    Shipping Address 2
-                                </h4>
-                                <p className="text-xs text-[#737373] mt-1 leading-relaxed">
-                                    Plot 8 Augustus Alakiya Close, Ogombo, Lekki
-                                    Lagos
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="bg-white border border-[#EAEAEA] rounded-2xl p-5 shadow-xs flex items-start gap-3.5">
-                            <div className="size-10 rounded-full bg-[#FAF7F2] border border-[#F0EBE0] flex items-center justify-center text-[#171717] shrink-0 mt-0.5">
-                                <MapPin className="size-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-bold text-[#171717]">
-                                    Shipping Address 3
-                                </h4>
-                                <p className="text-xs text-[#737373] mt-1 leading-relaxed">
-                                    Plot 8 Augustus Alakiya Close, Ogombo, Lekki
-                                    Lagos
-                                </p>
-                            </div>
-                        </div>
+                    <div className="bg-white border border-[#EAEAEA] rounded-2xl p-8 text-center shadow-xs">
+                        <MapPin className="size-8 text-[#CCCCCC] mx-auto mb-2" />
+                        <p className="text-sm font-semibold text-[#171717]">
+                            No saved addresses
+                        </p>
+                        <p className="text-xs text-[#737373] mt-1">
+                            This customer has not saved any delivery addresses
+                            yet.
+                        </p>
                     </div>
                 )}
             </div>
@@ -338,16 +378,17 @@ export const AdminCustomerDetails: React.FC = () => {
                     </h2>
                 </div>
 
-                {ordersList.length === 0 ? (
-                    /* Empty Orders state matching screenshot 5 */
+                {orders.length === 0 ? (
                     <div className="bg-white border border-[#EAEAEA] rounded-2xl p-12 text-center shadow-xs">
                         <EmptyOrderBoxIllustration />
                         <h4 className="text-sm font-semibold text-[#171717] mt-3">
-                            No orders available yet
+                            No orders placed yet
                         </h4>
+                        <p className="text-xs text-[#737373] mt-1">
+                            This customer has not placed any registered orders.
+                        </p>
                     </div>
                 ) : (
-                    /* Orders Table matching screenshot 3 */
                     <div className="bg-white border border-[#EAEAEA] rounded-2xl overflow-hidden shadow-xs">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse text-sm">
@@ -358,98 +399,135 @@ export const AdminCustomerDetails: React.FC = () => {
                                             Order ID
                                         </th>
                                         <th className="py-3.5 px-4">Date</th>
+                                        <th className="py-3.5 px-4">Items</th>
                                         <th className="py-3.5 px-4">Amount</th>
-                                        <th className="py-3.5 px-4">
-                                            Payment Status
-                                        </th>
-                                        <th className="py-3.5 px-4">
-                                            Order Progress
-                                        </th>
+                                        <th className="py-3.5 px-4">Status</th>
                                         <th className="py-3.5 px-4 text-right">
                                             Action
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#F5F5F5]">
-                                    {ordersList.map((order) => (
-                                        <tr
-                                            key={order.id}
-                                            className="hover:bg-[#FAF8F5] transition-colors"
-                                        >
-                                            <td className="py-3.5 px-4 text-sm text-[#171717]">
-                                                {order.sn}
-                                            </td>
-                                            <td className="py-3.5 px-4 text-sm text-[#171717]">
-                                                {order.orderId}
-                                            </td>
-                                            <td className="py-3.5 px-4 text-sm text-[#171717]">
-                                                {order.date}
-                                            </td>
-                                            <td className="py-3.5 px-4 text-sm text-[#171717]">
-                                                ₦
-                                                {order.amount.toLocaleString(
-                                                    "en-NG",
-                                                )}
-                                            </td>
-                                            <td className="py-3.5 px-4">
-                                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#10B981]">
-                                                    <span className="size-1.5 rounded-full bg-[#10B981]" />
-                                                    {order.paymentStatus}
-                                                </span>
-                                            </td>
-                                            <td className="py-3.5 px-4">
-                                                <span
-                                                    className={cn(
-                                                        "inline-flex items-center gap-1.5 text-xs font-semibold",
-                                                        order.orderProgress ===
-                                                            "Delivered" &&
-                                                            "text-[#10B981]",
-                                                        order.orderProgress ===
-                                                            "In Transit" &&
-                                                            "text-[#D4AF37]",
-                                                        order.orderProgress ===
-                                                            "Failed" &&
-                                                            "text-[#EF4444]",
-                                                        order.orderProgress ===
-                                                            "Order Placed" &&
-                                                            "text-[#3B82F6]",
+                                    {orders.map((order, idx) => {
+                                        const statusLower = (
+                                            order.status || ""
+                                        ).toLowerCase();
+                                        const isDelivered =
+                                            statusLower === "delivered";
+                                        const isProcessing =
+                                            statusLower === "processing" ||
+                                            statusLower === "in_transit" ||
+                                            statusLower === "shipped";
+                                        const isCancelled =
+                                            statusLower === "cancelled" ||
+                                            statusLower === "failed";
+
+                                        const firstItem = order.items?.[0];
+                                        const remainingItemsCount =
+                                            (order.items?.length || 1) - 1;
+
+                                        return (
+                                            <tr
+                                                key={order.orderId || idx}
+                                                className="hover:bg-[#FAF8F5] transition-colors"
+                                            >
+                                                <td className="py-3.5 px-4 text-sm text-[#171717]">
+                                                    {String(idx + 1).padStart(
+                                                        2,
+                                                        "0",
                                                     )}
-                                                >
+                                                </td>
+                                                <td className="py-3.5 px-4 text-sm font-medium text-[#171717]">
+                                                    {order.orderNumber}
+                                                </td>
+                                                <td className="py-3.5 px-4 text-sm text-[#737373]">
+                                                    {formatDate(
+                                                        order.createdAt,
+                                                    )}
+                                                </td>
+                                                <td className="py-3.5 px-4 text-xs text-[#171717]">
+                                                    {firstItem ? (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Package className="size-3.5 text-[#888888] shrink-0" />
+                                                            <span className="truncate max-w-[180px]">
+                                                                {
+                                                                    firstItem.productName
+                                                                }
+                                                            </span>
+                                                            {remainingItemsCount >
+                                                                0 && (
+                                                                <span className="text-[11px] font-semibold text-[#888888]">
+                                                                    +
+                                                                    {
+                                                                        remainingItemsCount
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-[#888888]">
+                                                            -
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="py-3.5 px-4 text-sm font-semibold text-[#171717]">
+                                                    {formatCurrency(
+                                                        order.total,
+                                                    )}
+                                                </td>
+                                                <td className="py-3.5 px-4">
                                                     <span
                                                         className={cn(
-                                                            "size-1.5 rounded-full",
-                                                            order.orderProgress ===
-                                                                "Delivered" &&
-                                                                "bg-[#10B981]",
-                                                            order.orderProgress ===
-                                                                "In Transit" &&
-                                                                "bg-[#D4AF37]",
-                                                            order.orderProgress ===
-                                                                "Failed" &&
-                                                                "bg-[#EF4444]",
-                                                            order.orderProgress ===
-                                                                "Order Placed" &&
-                                                                "bg-[#3B82F6]",
+                                                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold capitalize",
+                                                            isDelivered &&
+                                                                "bg-[#EAF7EE] text-[#1E7E34] border border-[#C3E6CB]",
+                                                            isProcessing &&
+                                                                "bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]",
+                                                            isCancelled &&
+                                                                "bg-[#FDF0F0] text-[#DC2626] border border-[#FCA5A5]",
+                                                            !isDelivered &&
+                                                                !isProcessing &&
+                                                                !isCancelled &&
+                                                                "bg-[#F3F4F6] text-[#4B5563] border border-[#E5E7EB]",
                                                         )}
-                                                    />
-                                                    {order.orderProgress}
-                                                </span>
-                                            </td>
-                                            <td className="py-3.5 px-4 text-right">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        navigate(
-                                                            `/orders/${order.id}`,
-                                                        )
-                                                    }
-                                                    className="text-sm font-medium text-[#171717] hover:text-[#D4AF37] transition-colors cursor-pointer underline"
-                                                >
-                                                    View
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                    >
+                                                        <span
+                                                            className={cn(
+                                                                "size-1.5 rounded-full",
+                                                                isDelivered &&
+                                                                    "bg-[#1E7E34]",
+                                                                isProcessing &&
+                                                                    "bg-[#D97706]",
+                                                                isCancelled &&
+                                                                    "bg-[#DC2626]",
+                                                                !isDelivered &&
+                                                                    !isProcessing &&
+                                                                    !isCancelled &&
+                                                                    "bg-[#4B5563]",
+                                                            )}
+                                                        />
+                                                        {order.status.replace(
+                                                            "_",
+                                                            " ",
+                                                        )}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3.5 px-4 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/orders/${order.orderId}`,
+                                                            )
+                                                        }
+                                                        className="text-sm font-medium text-[#171717] hover:text-[#D4AF37] transition-colors cursor-pointer underline"
+                                                    >
+                                                        View
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

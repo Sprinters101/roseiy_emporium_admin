@@ -9,7 +9,9 @@ import {
     createBrandFunc,
     updateBrandFunc,
     deleteBrandFunc,
+    createAdminProductFunc,
     updateAdminProductFunc,
+    deleteAdminProductFunc,
 } from "./apiFunc";
 import { queryKeys } from "./queries";
 import type {
@@ -18,6 +20,7 @@ import type {
     UpdateCategoryPayload,
     CreateBrandPayload,
     UpdateBrandPayload,
+    CreateProductPayload,
     AdminUpdateProductPayload,
 } from "./types";
 
@@ -260,6 +263,34 @@ export const useDeleteBrand = () => {
 // ============================================================================
 
 /**
+ * Hook to create a product (Admin)
+ */
+export const useCreateAdminProduct = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: CreateProductPayload) =>
+            createAdminProductFunc(payload),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({
+                queryKey: ["admin", "products"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ["products"],
+            });
+            toast.success(data?.message || "Product created successfully");
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to create product",
+            );
+        },
+    });
+};
+
+/**
  * Hook to update product in a single request (Admin Edit Product)
  */
 export const useUpdateAdminProduct = () => {
@@ -273,8 +304,13 @@ export const useUpdateAdminProduct = () => {
             productId: string;
             payload: AdminUpdateProductPayload;
         }) => updateAdminProductFunc(productId, payload),
-        onSuccess: (data) => {
-            // Invalidate all product queries (lists and details)
+        onSuccess: (data, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: ["admin", "products"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.adminProduct(variables.productId),
+            });
             queryClient.invalidateQueries({
                 queryKey: ["products"],
             });
@@ -285,6 +321,33 @@ export const useUpdateAdminProduct = () => {
                 err?.response?.data?.message ||
                     err?.message ||
                     "Failed to update product",
+            );
+        },
+    });
+};
+
+/**
+ * Hook to delete a product (Admin)
+ */
+export const useDeleteAdminProduct = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (productId: string) => deleteAdminProductFunc(productId),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({
+                queryKey: ["admin", "products"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ["products"],
+            });
+            toast.success(data?.message || "Product deleted successfully");
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to delete product",
             );
         },
     });

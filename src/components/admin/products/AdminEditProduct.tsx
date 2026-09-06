@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { ArrowLeft, CloudUpload, X, Info } from "lucide-react";
+import { ArrowLeft, CloudUpload, X, Info, Loader2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 import { products } from "@/lib/site_data";
 import type { Product } from "@/config/types";
@@ -7,7 +7,14 @@ import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { CustomInput } from "@/components/common/CustomInput";
 import { CustomPriceInput } from "@/components/common/CustomPriceInput";
 import { toast } from "@/components/ui/sonner";
-import { useGetAdminBrands, useGetAdminCategories } from "@/service/queries";
+import {
+    useGetAdminBrands,
+    useGetAdminCategories,
+    useGetAdminProduct,
+} from "@/service/queries";
+import { useUpdateAdminProduct } from "@/service/mutations";
+import { uploadImageToCloudinary } from "@/lib/cloudinary";
+import type { SellingUnit, ProductImage } from "@/service/types";
 
 const CATEGORY_OPTIONS = [
     { label: "Whiskey", value: "Whiskey" },
@@ -37,6 +44,7 @@ interface ImageItem {
     id: string;
     url: string;
     name: string;
+    isUploading?: boolean;
 }
 
 export const AdminEditProduct: React.FC = () => {
@@ -68,6 +76,10 @@ export const AdminEditProduct: React.FC = () => {
         return BRAND_OPTIONS;
     }, [brandsResponse]);
 
+    const { data: productDetailResponse } = useGetAdminProduct(id || "");
+    const { mutate: updateProduct, isPending: isUpdating } =
+        useUpdateAdminProduct();
+
     const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
 
     // Form state
@@ -82,8 +94,58 @@ export const AdminEditProduct: React.FC = () => {
     const [casesLeft, setCasesLeft] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const isUploadingAny = useMemo(
+        () => images.some((img) => img.isUploading),
+        [images],
+    );
+
     // Load initial product data
     useEffect(() => {
+        const apiItem = productDetailResponse?.data?.product;
+        if (apiItem) {
+            setName(apiItem.name || "");
+            setSize(apiItem.description?.replace("Volume: ", "") || "750ml");
+            setCategory(apiItem.category?.name || "Whiskey");
+            setBrand(apiItem.brand?.name || "Glenfiddich");
+
+            const pieceUnit =
+                apiItem.sellingUnits?.find(
+                    (u: SellingUnit) =>
+                        u.name?.toLowerCase() === "piece" ||
+                        u.name?.toLowerCase() === "pieces" ||
+                        u.name?.toLowerCase() === "bottle" ||
+                        u.name?.toLowerCase() === "bottles",
+                ) || apiItem.sellingUnits?.[0];
+
+            const caseUnit = apiItem.sellingUnits?.find(
+                (u: SellingUnit) =>
+                    u.name?.toLowerCase() === "case" ||
+                    u.name?.toLowerCase() === "cases" ||
+                    u.name?.toLowerCase() === "carton" ||
+                    u.name?.toLowerCase() === "cartons",
+            );
+
+            setPriceInPieces(pieceUnit?.price ? String(pieceUnit.price) : "");
+            setPriceInCases(caseUnit?.price ? String(caseUnit.price) : "");
+            setPiecesLeft(
+                pieceUnit?.stock !== undefined ? String(pieceUnit.stock) : "",
+            );
+            setCasesLeft(
+                caseUnit?.stock !== undefined ? String(caseUnit.stock) : "",
+            );
+
+            if (apiItem.images && apiItem.images.length > 0) {
+                setImages(
+                    apiItem.images.map((img: ProductImage, idx: number) => ({
+                        id: img.productImageId || `img-${idx}`,
+                        url: img.imageUrl,
+                        name: `Image ${idx + 1}.png`,
+                    })),
+                );
+            }
+            return;
+        }
+
         const found = products.find((p) => p.id === id);
         if (found) {
             setCurrentProduct(found);
@@ -144,22 +206,52 @@ export const AdminEditProduct: React.FC = () => {
                 },
             ]);
         }
-    }, [id]);
+    }, [id, productDetailResponse]);
 
     const handleBack = () => {
         navigate("/products");
     };
 
-    // Handle Image upload
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Handle Image upload to Cloudinary
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            const newFiles = Array.from(e.target.files);
-            const uploadedItems: ImageItem[] = newFiles.map((file, idx) => ({
-                id: `${Date.now()}-${idx}`,
-                url: URL.createObjectURL(file),
-                name: file.name,
-            }));
-            setImages((prev) => [...prev, ...uploadedItems]);
+            const filesToUpload = Array.from(e.target.files);
+            // Reset the file input so selecting the same file again triggers change
+            e.target.value = "";
+
+            for (const file of filesToUpload) {
+                const tempId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                const localPreview = URL.createObjectURL(file);
+
+                // Add placeholder with local preview while uploading to Cloudinary
+                setImages((prev) => [
+                    ...prev,
+                    {
+                        id: tempId,
+                        url: localPreview,
+                        name: file.name,
+                        isUploading: true,
+                    },
+                ]);
+
+                try {
+                    const cloudinaryUrl = await uploadImageToCloudinary(file);
+                    setImages((prev) =>
+                        prev.map((img) =>
+                            img.id === tempId
+                                ? { ...img, url: cloudinaryUrl, isUploading: false }
+                                : img,
+                        ),
+                    );
+                    URL.revokeObjectURL(localPreview);
+                } catch (err: any) {
+                    toast.error(
+                        `Failed to upload ${file.name}: ${err?.message || "Cloudinary error"}`,
+                    );
+                    setImages((prev) => prev.filter((img) => img.id !== tempId));
+                    URL.revokeObjectURL(localPreview);
+                }
+            }
         }
     };
 
@@ -171,22 +263,104 @@ export const AdminEditProduct: React.FC = () => {
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (isUploadingAny) {
+            toast.error(
+                "Please wait for all images to finish uploading before saving changes",
+            );
+            return;
+        }
+
         if (!name.trim()) {
             toast.error("Please enter a product name");
             return;
         }
 
-        if (!priceInPieces || Number(priceInPieces.replace(/,/g, "")) <= 0) {
+        const piecesPriceNum = Number(priceInPieces.replace(/,/g, ""));
+        if (!priceInPieces || piecesPriceNum <= 0) {
             toast.error("Please enter a valid selling price in pieces");
             return;
         }
 
         setIsSubmitting(true);
 
-        const updatedPieces = piecesLeft ? Number(piecesLeft) : 0;
-        const updatedCases = casesLeft ? Number(casesLeft) : 0;
+        const apiCategories = categoriesResponse?.data?.categories || [];
+        const matchedCategory = apiCategories.find(
+            (c) =>
+                c.name.toLowerCase() === category.toLowerCase() ||
+                c.categoryId === category,
+        );
+        const categoryId =
+            matchedCategory?.categoryId || apiCategories[0]?.categoryId;
+
+        const apiBrands = brandsResponse?.data?.brands || [];
+        const matchedBrand = apiBrands.find(
+            (b) =>
+                b.name.toLowerCase() === brand.toLowerCase() ||
+                b.brandId === brand,
+        );
+        const brandId = matchedBrand?.brandId || apiBrands[0]?.brandId;
+
+        const updatedPieces = piecesLeft ? Number(piecesLeft.replace(/,/g, "")) : 0;
+        const updatedCases = casesLeft ? Number(casesLeft.replace(/,/g, "")) : 0;
+        const casePriceNum = priceInCases ? Number(priceInCases.replace(/,/g, "")) : 0;
         const updatedStatus =
             updatedPieces > 0 || updatedCases > 0 ? "Available" : "Out of Stock";
+
+        const apiItem = productDetailResponse?.data?.product;
+        const existingPieceUnit = apiItem?.sellingUnits?.find(
+            (u: SellingUnit) =>
+                u.name?.toLowerCase() === "piece" ||
+                u.name?.toLowerCase() === "pieces" ||
+                u.name?.toLowerCase() === "bottle" ||
+                u.name?.toLowerCase() === "bottles",
+        ) || apiItem?.sellingUnits?.[0];
+
+        const existingCaseUnit = apiItem?.sellingUnits?.find(
+            (u: SellingUnit) =>
+                u.name?.toLowerCase() === "case" ||
+                u.name?.toLowerCase() === "cases" ||
+                u.name?.toLowerCase() === "carton" ||
+                u.name?.toLowerCase() === "cartons",
+        );
+
+        const sellingUnits = [
+            {
+                sellingUnitId: existingPieceUnit?.sellingUnitId,
+                name: "Piece",
+                price: piecesPriceNum,
+                stock: updatedPieces,
+                status: "active",
+            },
+        ];
+
+        if (casePriceNum > 0) {
+            sellingUnits.push({
+                sellingUnitId: existingCaseUnit?.sellingUnitId,
+                name: "Carton",
+                price: casePriceNum,
+                stock: updatedCases,
+                status: "active",
+            });
+        }
+
+        const fallbackImage =
+            "https://res.cloudinary.com/dzk1a6bjt/image/upload/v1784813212/p_5_ohp3t7.png";
+        const productImages =
+            images.length > 0
+                ? images.map((img, idx) => ({
+                      imageUrl: img.url,
+                      altText: name.trim(),
+                      isPrimary: idx === 0,
+                      sortOrder: idx,
+                  }))
+                : [
+                      {
+                          imageUrl: fallbackImage,
+                          altText: name.trim(),
+                          isPrimary: true,
+                          sortOrder: 0,
+                      },
+                  ];
 
         const updatedProduct: Product = {
             id: id || String(Date.now()),
@@ -194,36 +368,70 @@ export const AdminEditProduct: React.FC = () => {
             category: category || "Whiskey",
             brand: brand || "Roseiy Collection",
             volume: size || "750ml",
-            price: Number(priceInPieces.replace(/,/g, "")),
-            casePrice: priceInCases
-                ? Number(priceInCases.replace(/,/g, ""))
-                : undefined,
-            priceInCases: priceInCases
-                ? Number(priceInCases.replace(/,/g, ""))
-                : undefined,
+            price: piecesPriceNum,
+            casePrice: casePriceNum > 0 ? casePriceNum : undefined,
+            priceInCases: casePriceNum > 0 ? casePriceNum : undefined,
             piecesLeft: updatedPieces,
             casesLeft: updatedCases,
             status: updatedStatus,
             image:
                 images.length > 0
                     ? images[0].url
-                    : currentProduct?.image ||
-                      "https://res.cloudinary.com/dzk1a6bjt/image/upload/v1784813212/p_5_ohp3t7.png",
+                    : currentProduct?.image || fallbackImage,
             gallery: images.map((img) => img.url),
             isFeatured: currentProduct?.isFeatured || false,
         };
 
-        setTimeout(() => {
-            // Update in global catalog array if applicable
-            const idx = products.findIndex((p) => p.id === id);
-            if (idx !== -1) {
-                products[idx] = updatedProduct;
-            }
-
+        if (!id) {
             setIsSubmitting(false);
-            toast.success(`"${updatedProduct.name}" updated successfully!`);
-            handleBack();
-        }, 300);
+            toast.error("Product ID is missing");
+            return;
+        }
+
+        if (!categoryId) {
+            setIsSubmitting(false);
+            toast.error("Please select a valid category");
+            return;
+        }
+
+        updateProduct(
+            {
+                productId: id,
+                payload: {
+                    name: name.trim(),
+                    description: size ? `Volume: ${size}` : undefined,
+                    categoryId,
+                    brandId: brandId || undefined,
+                    status:
+                        updatedPieces > 0 || updatedCases > 0
+                            ? "active"
+                            : "inactive",
+                    sellingUnits,
+                    images: productImages,
+                },
+            },
+            {
+                onSuccess: () => {
+                    // Update in global catalog array if applicable
+                    const idx = products.findIndex((p) => p.id === id);
+                    if (idx !== -1) {
+                        products[idx] = updatedProduct;
+                    }
+                    setIsSubmitting(false);
+                    toast.success("Product updated successfully!");
+                    handleBack();
+                },
+                onError: (err: any) => {
+                    setIsSubmitting(false);
+                    const errMsg =
+                        err?.response?.data?.message ||
+                        err?.message ||
+                        "Failed to update product. Please check the details and try again.";
+                    toast.error(errMsg);
+                    // Remain on the edit product page so user can fix and retry
+                },
+            },
+        );
     };
 
     // Numeric formatting for preview price
@@ -373,16 +581,25 @@ export const AdminEditProduct: React.FC = () => {
                                             alt={img.name}
                                             className="max-h-full max-w-full object-contain"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                handleRemoveImage(img.id)
-                                            }
-                                            className="size-5 rounded-full bg-white text-red-500 shadow-sm flex items-center justify-center hover:bg-red-50 cursor-pointer absolute top-2 right-2 transition-transform"
-                                            title="Remove image"
-                                        >
-                                            <X className="size-3.5" />
-                                        </button>
+                                        {img.isUploading ? (
+                                            <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex flex-col items-center justify-center text-white z-10">
+                                                <Loader2 className="size-5 animate-spin text-[#D4AF37]" />
+                                                <span className="text-[10px] font-medium mt-1">
+                                                    Uploading...
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    handleRemoveImage(img.id)
+                                                }
+                                                className="size-5 rounded-full bg-white text-red-500 shadow-sm flex items-center justify-center hover:bg-red-50 cursor-pointer absolute top-2 right-2 transition-transform z-10"
+                                                title="Remove image"
+                                            >
+                                                <X className="size-3.5" />
+                                            </button>
+                                        )}
                                     </div>
                                     <span className="text-[11px] text-[#737373] mt-1.5 truncate max-w-[120px] text-center">
                                         {img.name}
@@ -468,11 +685,21 @@ export const AdminEditProduct: React.FC = () => {
                         {/* Image Preview Box */}
                         <div className="bg-[#FAF8F5] rounded-2xl flex items-center justify-center p-6 my-5 aspect-square relative overflow-hidden">
                             {images.length > 0 ? (
-                                <img
-                                    src={images[0].url}
-                                    alt={name || "Product Preview"}
-                                    className="max-h-full max-w-full object-contain animate-fadeIn"
-                                />
+                                <div className="relative w-full h-full flex items-center justify-center">
+                                    <img
+                                        src={images[0].url}
+                                        alt={name || "Product Preview"}
+                                        className="max-h-full max-w-full object-contain animate-fadeIn"
+                                    />
+                                    {images[0].isUploading && (
+                                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] rounded-2xl flex flex-col items-center justify-center text-white z-10">
+                                            <Loader2 className="size-6 animate-spin text-[#D4AF37]" />
+                                            <span className="text-xs font-medium mt-1">
+                                                Uploading to Cloudinary...
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
                             ) : (
                                 /* Line-art image placeholder */
                                 <svg
@@ -519,11 +746,23 @@ export const AdminEditProduct: React.FC = () => {
                         {/* Save Changes Button */}
                         <button
                             type="button"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || isUpdating || isUploadingAny}
                             onClick={handleSave}
-                            className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-3.5 rounded-xl transition-all shadow-xs cursor-pointer text-sm mt-6 disabled:opacity-50"
+                            className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-3.5 rounded-xl transition-all shadow-xs cursor-pointer text-sm mt-6 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            {isSubmitting ? "Saving Changes..." : "Save Changes"}
+                            {isSubmitting || isUpdating ? (
+                                <>
+                                    <Loader2 className="size-4 animate-spin" />
+                                    <span>Saving Changes...</span>
+                                </>
+                            ) : isUploadingAny ? (
+                                <>
+                                    <Loader2 className="size-4 animate-spin" />
+                                    <span>Uploading Images...</span>
+                                </>
+                            ) : (
+                                <span>Save Changes</span>
+                            )}
                         </button>
 
                         <div className="text-[11px] text-[#737373] flex items-center justify-center gap-1.5 mt-3 text-center">
