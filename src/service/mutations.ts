@@ -13,6 +13,10 @@ import {
     updateAdminProductFunc,
     deleteAdminProductFunc,
     updateAdminOrderStatusFunc,
+    createAdminDeliveryAreaFunc,
+    updateAdminDeliveryAreaFunc,
+    deleteAdminDeliveryAreaFunc,
+    updateAdminDeliverySettingsFunc,
 } from "./apiFunc";
 import { queryKeys } from "./queries";
 import type {
@@ -24,6 +28,9 @@ import type {
     CreateProductPayload,
     AdminUpdateProductPayload,
     UpdateOrderStatusPayload,
+    CreateDeliveryAreaPayload,
+    UpdateDeliveryAreaPayload,
+    UpdateDeliverySettingPayload,
 } from "./types";
 
 // ============================================================================
@@ -395,4 +402,143 @@ export const useUpdateAdminOrderStatus = () => {
         },
     });
 };
+
+// ============================================================================
+// 7. Delivery Management Mutations (Admin)
+// ============================================================================
+
+/**
+ * Hook to create a new delivery area (Admin)
+ * POST /admin/delivery-areas
+ */
+export const useCreateAdminDeliveryArea = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: CreateDeliveryAreaPayload) =>
+            createAdminDeliveryAreaFunc(payload),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({
+                queryKey: ["admin", "delivery-areas"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.publicDeliveryAreas,
+            });
+            toast.success(
+                data?.message || "Delivery area created successfully",
+            );
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to create delivery area",
+            );
+        },
+    });
+};
+
+/**
+ * Hook to update a delivery area (Admin)
+ * PATCH /admin/delivery-areas/:deliveryAreaId
+ */
+export const useUpdateAdminDeliveryArea = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({
+            deliveryAreaId,
+            payload,
+        }: {
+            deliveryAreaId: string;
+            payload: UpdateDeliveryAreaPayload;
+        }) => updateAdminDeliveryAreaFunc(deliveryAreaId, payload),
+        onSuccess: (data, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: ["admin", "delivery-areas"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.adminDeliveryArea(
+                    variables.deliveryAreaId,
+                ),
+            });
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.publicDeliveryAreas,
+            });
+            toast.success(
+                data?.message || "Delivery area updated successfully",
+            );
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to update delivery area",
+            );
+        },
+    });
+};
+
+/**
+ * Hook to delete a delivery area (Admin)
+ * DELETE /admin/delivery-areas/:deliveryAreaId
+ */
+export const useDeleteAdminDeliveryArea = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (deliveryAreaId: string) =>
+            deleteAdminDeliveryAreaFunc(deliveryAreaId),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({
+                queryKey: ["admin", "delivery-areas"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.publicDeliveryAreas,
+            });
+            toast.success(
+                data?.message || "Delivery area deleted successfully",
+            );
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to delete delivery area",
+            );
+        },
+    });
+};
+
+/**
+ * Hook to update delivery settings (Admin)
+ * PATCH /admin/delivery-settings
+ */
+export const useUpdateAdminDeliverySettings = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: UpdateDeliverySettingPayload) =>
+            updateAdminDeliverySettingsFunc(payload),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.adminDeliverySettings,
+            });
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.publicDeliveryAreas,
+            });
+            toast.success(
+                data?.message || "Delivery settings updated successfully",
+            );
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to update delivery settings",
+            );
+        },
+    });
+};
+
 

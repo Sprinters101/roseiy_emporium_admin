@@ -489,10 +489,10 @@ export const AdminOrders: React.FC = () => {
         } else if (statusTab === "ongoing") {
             if (progressFilter === "InTransit") {
                 p.status = "shipped";
-                return;
+                return p;
             } else if (progressFilter === "Order Confirmed") {
                 p.status = "processing";
-                return;
+                return p;
             }
             p.status = "processing";
         }
@@ -512,6 +512,7 @@ export const AdminOrders: React.FC = () => {
     const totalPages = pagination?.totalPages || 1;
 
     // Filter by tab on client-side if status was not restricted on backend
+
     const tabFilteredOrders = useMemo(() => {
         return apiOrders.filter((order) => {
             const status = (order.status || "").toLowerCase();
@@ -521,9 +522,11 @@ export const AdminOrders: React.FC = () => {
                     return status === "processing";
                 return status === "processing" || status === "shipped";
             }
+
             if (statusTab === "completed") {
                 return status === "delivered";
             }
+
             if (statusTab === "failed") {
                 return status === "cancelled" || status === "failed";
             }
@@ -776,7 +779,7 @@ export const AdminOrders: React.FC = () => {
                             Ongoing
                         </span>
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#F5F5F5] text-[#737373]">
-                            {statusTab === "ongoing" ? totalCurrentCount : "—"}
+                            {totalCurrentCount}
                         </span>
                     </button>
 
@@ -793,9 +796,7 @@ export const AdminOrders: React.FC = () => {
                         <span className="size-2 rounded-full bg-[#10B981]" />
                         <span>Completed</span>
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#F5F5F5] text-[#737373]">
-                            {statusTab === "completed"
-                                ? totalCurrentCount
-                                : "—"}
+                            {totalCurrentCount}
                         </span>
                     </button>
 
@@ -812,7 +813,7 @@ export const AdminOrders: React.FC = () => {
                         <span className="size-2 rounded-full bg-[#EF4444]" />
                         <span>Failed</span>
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#F5F5F5] text-[#737373]">
-                            {statusTab === "failed" ? totalCurrentCount : "—"}
+                            {totalCurrentCount}
                         </span>
                     </button>
                 </div>

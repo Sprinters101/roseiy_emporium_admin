@@ -30,6 +30,14 @@ import type {
     UpdateOrderStatusPayload,
     UpdateOrderStatusResponse,
     AdminOrderProgressResponse,
+    GetDeliveryAreasParams,
+    CreateDeliveryAreaPayload,
+    UpdateDeliveryAreaPayload,
+    AdminDeliveryAreaListResponse,
+    AdminDeliveryAreaResponse,
+    UpdateDeliverySettingPayload,
+    AdminDeliverySettingsResponse,
+    PublicDeliveryAreasResponse,
 } from "./types";
 
 // ============================================================================
@@ -431,5 +439,120 @@ export const updateAdminOrderStatusFunc = async (
     );
     return response.data;
 };
+
+// ============================================================================
+// 8. Delivery Management Endpoints
+// ============================================================================
+
+/**
+ * List delivery areas (Admin) with pagination, search, and status
+ * GET /admin/delivery-areas
+ */
+export const getAdminDeliveryAreasFunc = async (
+    params?: GetDeliveryAreasParams,
+): Promise<AdminDeliveryAreaListResponse> => {
+    const response = await axiosInstance.get<AdminDeliveryAreaListResponse>(
+        "/admin/delivery-areas",
+        { params },
+    );
+    return response.data;
+};
+
+/**
+ * Create a new delivery area (Admin)
+ * POST /admin/delivery-areas
+ */
+export const createAdminDeliveryAreaFunc = async (
+    payload: CreateDeliveryAreaPayload,
+): Promise<AdminDeliveryAreaResponse> => {
+    const response = await axiosInstance.post<AdminDeliveryAreaResponse>(
+        "/admin/delivery-areas",
+        payload,
+    );
+    return response.data;
+};
+
+/**
+ * Get one delivery area by ID (Admin)
+ * GET /admin/delivery-areas/:deliveryAreaId
+ */
+export const getAdminDeliveryAreaByIdFunc = async (
+    deliveryAreaId: string,
+): Promise<AdminDeliveryAreaResponse> => {
+    const response = await axiosInstance.get<AdminDeliveryAreaResponse>(
+        `/admin/delivery-areas/${deliveryAreaId}`,
+    );
+    return response.data;
+};
+
+/**
+ * Update delivery area (Admin)
+ * PATCH /admin/delivery-areas/:deliveryAreaId
+ */
+export const updateAdminDeliveryAreaFunc = async (
+    deliveryAreaId: string,
+    payload: UpdateDeliveryAreaPayload,
+): Promise<AdminDeliveryAreaResponse> => {
+    const response = await axiosInstance.patch<AdminDeliveryAreaResponse>(
+        `/admin/delivery-areas/${deliveryAreaId}`,
+        payload,
+    );
+    return response.data;
+};
+
+/**
+ * Delete delivery area (Admin)
+ * DELETE /admin/delivery-areas/:deliveryAreaId
+ */
+export const deleteAdminDeliveryAreaFunc = async (
+    deliveryAreaId: string,
+): Promise<ApiResponse<null>> => {
+    const response = await axiosInstance.delete<ApiResponse<null>>(
+        `/admin/delivery-areas/${deliveryAreaId}`,
+    );
+    return response.data;
+};
+
+/**
+ * Get delivery settings (Admin)
+ * GET /admin/delivery-settings
+ */
+export const getAdminDeliverySettingsFunc =
+    async (): Promise<AdminDeliverySettingsResponse> => {
+        const response =
+            await axiosInstance.get<AdminDeliverySettingsResponse>(
+                "/admin/delivery-settings",
+            );
+        return response.data;
+    };
+
+/**
+ * Update delivery settings (Admin)
+ * PATCH /admin/delivery-settings
+ */
+export const updateAdminDeliverySettingsFunc = async (
+    payload: UpdateDeliverySettingPayload,
+): Promise<AdminDeliverySettingsResponse> => {
+    const response =
+        await axiosInstance.patch<AdminDeliverySettingsResponse>(
+            "/admin/delivery-settings",
+            payload,
+        );
+    return response.data;
+};
+
+/**
+ * Get public active delivery areas & free delivery settings
+ * GET /delivery-areas
+ */
+export const getPublicDeliveryAreasFunc =
+    async (): Promise<PublicDeliveryAreasResponse> => {
+        const response =
+            await axiosInstance.get<PublicDeliveryAreasResponse>(
+                "/delivery-areas",
+            );
+        return response.data;
+    };
+
 
 

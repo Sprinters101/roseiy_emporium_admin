@@ -423,3 +423,68 @@ export type AdminOrderProgressResponse = ApiResponse<{
     progress: OrderProgressData;
 }>;
 
+// ============================================================================
+// 8. Delivery Management Types
+// ============================================================================
+
+export interface DeliveryArea {
+    deliveryAreaId: string;
+    name: string;
+    fee: string | number;
+    status: "active" | "inactive" | string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface GetDeliveryAreasParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: "active" | "inactive" | string;
+}
+
+export interface CreateDeliveryAreaPayload {
+    name: string;
+    fee: number;
+    status: "active" | "inactive" | string;
+}
+
+export interface UpdateDeliveryAreaPayload {
+    name?: string;
+    fee?: number;
+    status?: "active" | "inactive" | string;
+}
+
+export type AdminDeliveryAreaListResponse = ApiResponse<{
+    deliveryAreas: DeliveryArea[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+}>;
+
+export type AdminDeliveryAreaResponse = ApiResponse<{
+    deliveryArea: DeliveryArea;
+}>;
+
+export interface DeliverySetting {
+    deliverySettingId?: string;
+    freeDeliveryEnabled: boolean;
+    freeDeliveryThreshold: string | number;
+}
+
+export interface UpdateDeliverySettingPayload {
+    freeDeliveryEnabled?: boolean;
+    freeDeliveryThreshold?: number;
+}
+
+export type AdminDeliverySettingsResponse = ApiResponse<{
+    settings: DeliverySetting;
+}>;
+
+export type PublicDeliveryAreasResponse = ApiResponse<{
+    deliveryAreas: DeliveryArea[];
+    settings: DeliverySetting;
+}>;

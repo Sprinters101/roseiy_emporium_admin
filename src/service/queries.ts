@@ -18,11 +18,16 @@ import {
     getAdminOrdersFunc,
     getAdminOrderByIdFunc,
     getAdminOrderProgressFunc,
+    getAdminDeliveryAreasFunc,
+    getAdminDeliveryAreaByIdFunc,
+    getAdminDeliverySettingsFunc,
+    getPublicDeliveryAreasFunc,
 } from "./apiFunc";
 import type {
     GetProductsParams,
     GetCustomersParams,
     GetOrdersParams,
+    GetDeliveryAreasParams,
 } from "./types";
 
 // ============================================================================
@@ -55,6 +60,12 @@ export const queryKeys = {
     adminOrder: (orderId: string) => ["admin", "orders", orderId] as const,
     adminOrderProgress: (orderId: string) =>
         ["admin", "orders", orderId, "progress"] as const,
+    adminDeliveryAreas: (params?: GetDeliveryAreasParams) =>
+        ["admin", "delivery-areas", params] as const,
+    adminDeliveryArea: (deliveryAreaId: string) =>
+        ["admin", "delivery-areas", deliveryAreaId] as const,
+    adminDeliverySettings: ["admin", "delivery-settings"] as const,
+    publicDeliveryAreas: ["delivery-areas"] as const,
 };
 
 // ============================================================================
@@ -270,6 +281,52 @@ export const useGetAdminOrderProgress = (orderId: string) => {
         enabled: Boolean(orderId),
     });
 };
+
+// ============================================================================
+// 8. Delivery Management Queries
+// ============================================================================
+
+/**
+ * Hook to fetch delivery areas list (Admin)
+ */
+export const useGetAdminDeliveryAreas = (params?: GetDeliveryAreasParams) => {
+    return useQuery({
+        queryKey: queryKeys.adminDeliveryAreas(params),
+        queryFn: () => getAdminDeliveryAreasFunc(params),
+    });
+};
+
+/**
+ * Hook to fetch single delivery area by ID (Admin)
+ */
+export const useGetAdminDeliveryArea = (deliveryAreaId: string) => {
+    return useQuery({
+        queryKey: queryKeys.adminDeliveryArea(deliveryAreaId),
+        queryFn: () => getAdminDeliveryAreaByIdFunc(deliveryAreaId),
+        enabled: Boolean(deliveryAreaId),
+    });
+};
+
+/**
+ * Hook to fetch delivery settings (Admin)
+ */
+export const useGetAdminDeliverySettings = () => {
+    return useQuery({
+        queryKey: queryKeys.adminDeliverySettings,
+        queryFn: () => getAdminDeliverySettingsFunc(),
+    });
+};
+
+/**
+ * Hook to fetch public delivery areas and free delivery settings
+ */
+export const useGetPublicDeliveryAreas = () => {
+    return useQuery({
+        queryKey: queryKeys.publicDeliveryAreas,
+        queryFn: () => getPublicDeliveryAreasFunc(),
+    });
+};
+
 
 
 
