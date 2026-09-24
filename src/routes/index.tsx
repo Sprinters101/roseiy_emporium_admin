@@ -11,6 +11,7 @@ import { AdminBrands } from "@/components/admin/brands/AdminBrands";
 import { AdminOrders } from "@/components/admin/orders/AdminOrders";
 import { AdminOrderDetails } from "@/components/admin/orders/AdminOrderDetails";
 import { AdminDeliveries } from "@/components/admin/deliveries/AdminDeliveries";
+import { AdminPayments } from "@/components/admin/payments/AdminPayments";
 import { AdminCustomers } from "@/components/admin/customers/AdminCustomers";
 import { AdminCustomerDetails } from "@/components/admin/customers/AdminCustomerDetails";
 import { AdminSettings } from "@/components/admin/settings/AdminSettings";
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
             { path: "brands", element: <AdminBrands /> },
             { path: "orders", element: <AdminOrders /> },
             { path: "orders/:id", element: <AdminOrderDetails /> },
+            { path: "payments", element: <AdminPayments /> },
             { path: "deliveries", element: <AdminDeliveries /> },
             { path: "customers", element: <AdminCustomers /> },
             { path: "customers/:id", element: <AdminCustomerDetails /> },

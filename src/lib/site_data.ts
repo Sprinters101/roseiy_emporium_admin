@@ -2,6 +2,7 @@ import type { Product } from "@/config/types";
 import {
     Boxes,
     Crown,
+    // CreditCard,
     LayoutDashboard,
     Package,
     Settings,
@@ -275,6 +276,7 @@ export const navItems = [
     { name: "Categories", href: "/categories", icon: ShoppingBasket },
     { name: "Brands", href: "/brands", icon: Crown },
     { name: "Orders", href: "/orders", icon: Boxes },
+    // { name: "Payments", href: "/payments", icon: CreditCard },
     { name: "Deliveries", href: "/deliveries", icon: Truck },
     { name: "Customers", href: "/customers", icon: Users },
     { name: "Settings", href: "/settings", icon: Settings },

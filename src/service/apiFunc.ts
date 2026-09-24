@@ -43,6 +43,9 @@ import type {
     AdminDeliverySettingsResponse,
     PublicDeliveryAreasResponse,
     AdminDashboardResponse,
+    GetPaymentsParams,
+    AdminPaymentListResponse,
+    AdminPaymentDetailResponse,
 } from "./types";
 
 // ============================================================================
@@ -595,4 +598,47 @@ export const getAdminDashboardFunc =
             await axiosInstance.get<AdminDashboardResponse>("/admin/dashboard");
         return response.data;
     };
+
+// ============================================================================
+// 10. Admin Payments Endpoints
+// ============================================================================
+
+/**
+ * List payment transactions (Admin)
+ * GET /admin/payments
+ */
+export const getAdminPaymentsFunc = async (
+    params?: GetPaymentsParams,
+): Promise<AdminPaymentListResponse> => {
+    const cleanParams: Record<string, any> = {};
+    if (params) {
+        if (params.page !== undefined) cleanParams.page = params.page;
+        if (params.limit !== undefined) cleanParams.limit = params.limit;
+        if (params.search?.trim()) cleanParams.search = params.search.trim();
+        if (params.status && params.status !== "all") {
+            cleanParams.status = params.status;
+        }
+        if (params.dateFrom?.trim()) cleanParams.dateFrom = params.dateFrom.trim();
+        if (params.dateTo?.trim()) cleanParams.dateTo = params.dateTo.trim();
+    }
+    const response = await axiosInstance.get<AdminPaymentListResponse>(
+        "/admin/payments",
+        { params: cleanParams },
+    );
+    return response.data;
+};
+
+/**
+ * Get one payment transaction (Admin)
+ * GET /admin/payments/:paymentTransactionId
+ */
+export const getAdminPaymentDetailFunc = async (
+    paymentTransactionId: string,
+): Promise<AdminPaymentDetailResponse> => {
+    const response = await axiosInstance.get<AdminPaymentDetailResponse>(
+        `/admin/payments/${paymentTransactionId}`,
+    );
+    return response.data;
+};
+
 

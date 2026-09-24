@@ -559,3 +559,63 @@ export interface DashboardData {
 export type AdminDashboardResponse = ApiResponse<{
     dashboard: DashboardData;
 }>;
+
+// ----------------------------------------------------------------------
+// 10. Admin Payments Types
+// ----------------------------------------------------------------------
+
+export type PaymentStatus =
+    | "pending"
+    | "success"
+    | "failed"
+    | "requires_review";
+
+export interface PaymentLinkedOrder {
+    orderId: string;
+    orderNumber: string;
+    status?: string;
+}
+
+export interface PaymentTransactionItem {
+    paymentTransactionId: string;
+    reference: string;
+    cartId?: string | null;
+    customerId?: string | null;
+    orderId?: string | null;
+    email: string;
+    amount: string | number;
+    currency: string;
+    status: PaymentStatus;
+    providerStatus?: string | null;
+    authorizationUrl?: string | null;
+    accessCode?: string | null;
+    paidAt?: string | null;
+    createdAt: string;
+    updatedAt?: string | null;
+    order?: PaymentLinkedOrder | null;
+}
+
+export interface GetPaymentsParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: PaymentStatus | "all";
+    dateFrom?: string;
+    dateTo?: string;
+}
+
+export interface PaymentPagination {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
+
+export type AdminPaymentListResponse = ApiResponse<{
+    payments: PaymentTransactionItem[];
+    pagination: PaymentPagination;
+}>;
+
+export type AdminPaymentDetailResponse = ApiResponse<{
+    payment: PaymentTransactionItem;
+}>;

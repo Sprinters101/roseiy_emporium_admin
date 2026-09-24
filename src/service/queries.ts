@@ -23,12 +23,15 @@ import {
     getAdminDeliverySettingsFunc,
     getPublicDeliveryAreasFunc,
     getAdminDashboardFunc,
+    getAdminPaymentsFunc,
+    getAdminPaymentDetailFunc,
 } from "./apiFunc";
 import type {
     GetProductsParams,
     GetCustomersParams,
     GetOrdersParams,
     GetDeliveryAreasParams,
+    GetPaymentsParams,
 } from "./types";
 
 // ============================================================================
@@ -68,6 +71,10 @@ export const queryKeys = {
         ["admin", "delivery-areas", deliveryAreaId] as const,
     adminDeliverySettings: ["admin", "delivery-settings"] as const,
     publicDeliveryAreas: ["delivery-areas"] as const,
+    adminPayments: (params?: GetPaymentsParams) =>
+        ["admin", "payments", params] as const,
+    adminPayment: (paymentTransactionId: string) =>
+        ["admin", "payments", paymentTransactionId] as const,
 };
 
 // ============================================================================
@@ -338,4 +345,30 @@ export const useGetAdminDashboard = () => {
         queryFn: () => getAdminDashboardFunc(),
     });
 };
+
+// ============================================================================
+// 10. Admin Payments Hooks
+// ============================================================================
+
+/**
+ * Hook to fetch paginated admin payment transactions
+ */
+export const useGetAdminPayments = (params?: GetPaymentsParams) => {
+    return useQuery({
+        queryKey: queryKeys.adminPayments(params),
+        queryFn: () => getAdminPaymentsFunc(params),
+    });
+};
+
+/**
+ * Hook to fetch single payment transaction by ID (Admin)
+ */
+export const useGetAdminPaymentDetail = (paymentTransactionId?: string) => {
+    return useQuery({
+        queryKey: queryKeys.adminPayment(paymentTransactionId || ""),
+        queryFn: () => getAdminPaymentDetailFunc(paymentTransactionId!),
+        enabled: Boolean(paymentTransactionId),
+    });
+};
+
 
