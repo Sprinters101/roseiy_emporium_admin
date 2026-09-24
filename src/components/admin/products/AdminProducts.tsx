@@ -4,8 +4,6 @@ import {
     Search,
     Trash2,
     Pen,
-    RotateCcw,
-    X,
     Check,
     Minus,
     RefreshCw,
@@ -237,11 +235,9 @@ export const AdminProducts: React.FC = () => {
     const [isBatchDeleting, setIsBatchDeleting] = useState(false);
 
     const [productList, setProductList] = useState<Product[]>([]);
-    const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     // Modals
-    const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
     const [productToDelete, setProductToDelete] = useState<Product | null>(
         null,
     );
@@ -343,7 +339,6 @@ export const AdminProducts: React.FC = () => {
                 setProductList((prev) =>
                     prev.filter((p) => p.id !== target.id),
                 );
-                setDeletedProducts((prev) => [target, ...prev]);
                 setSelectedIds((prev) => prev.filter((id) => id !== target.id));
                 setIsDeleteModalOpen(false);
                 setProductToDelete(null);
@@ -353,7 +348,6 @@ export const AdminProducts: React.FC = () => {
                 setProductList((prev) =>
                     prev.filter((p) => p.id !== target.id),
                 );
-                setDeletedProducts((prev) => [target, ...prev]);
                 setSelectedIds((prev) => prev.filter((id) => id !== target.id));
                 setIsDeleteModalOpen(false);
                 setProductToDelete(null);
@@ -364,7 +358,6 @@ export const AdminProducts: React.FC = () => {
     // Batch delete
     const handleConfirmBatchDelete = async () => {
         if (selectedIds.length === 0) return;
-        const targets = productList.filter((p) => selectedIds.includes(p.id));
         setIsBatchDeleting(true);
         try {
             await Promise.allSettled(
@@ -376,7 +369,6 @@ export const AdminProducts: React.FC = () => {
             setProductList((prev) =>
                 prev.filter((p) => !selectedIds.includes(p.id)),
             );
-            setDeletedProducts((prev) => [...targets, ...prev]);
             setSelectedIds([]);
             setIsBatchDeleteModalOpen(false);
             setIsBatchDeleting(false);
