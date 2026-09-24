@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { useGetAdminOrders } from "@/service/queries";
 import type { AdminOrderDetail, GetOrdersParams } from "@/service/types";
 
-export type OrderCategory = "ongoing" | "completed" | "failed";
+export type OrderCategory = "all" | "ongoing" | "completed" | "failed";
 
 const PROGRESS_OPTIONS = [
     { label: "All Progress", value: "all" },
@@ -455,7 +455,7 @@ export const AdminOrders: React.FC = () => {
     const [fromDate, setFromDate] = useState<Date | null>(null);
     const [toDate, setToDate] = useState<Date | null>(null);
     const [sortBy, setSortBy] = useState("newest");
-    const [statusTab, setStatusTab] = useState<OrderCategory>("ongoing");
+    const [statusTab, setStatusTab] = useState<OrderCategory>("all");
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
 
@@ -471,6 +471,9 @@ export const AdminOrders: React.FC = () => {
     const handleStatusTabChange = (tab: OrderCategory) => {
         setStatusTab(tab);
         setCurrentPage(1);
+        if (tab !== "ongoing") {
+            setProgressFilter("all");
+        }
     };
 
     // Query params for backend
@@ -489,13 +492,12 @@ export const AdminOrders: React.FC = () => {
         } else if (statusTab === "ongoing") {
             if (progressFilter === "InTransit") {
                 p.status = "shipped";
-                return p;
             } else if (progressFilter === "Order Confirmed") {
                 p.status = "processing";
-                return p;
             }
-            p.status = "processing";
+            // When progressFilter is "all", don't send status yet until a new option is picked
         }
+        // When statusTab is "all", p.status is not set (returns all orders)
         return p;
     }, [currentPage, pageSize, debouncedSearch, statusTab, progressFilter]);
 
@@ -512,23 +514,22 @@ export const AdminOrders: React.FC = () => {
     const totalPages = pagination?.totalPages || 1;
 
     // Filter by tab on client-side if status was not restricted on backend
-
     const tabFilteredOrders = useMemo(() => {
         return apiOrders.filter((order) => {
             const status = (order.status || "").toLowerCase();
             if (statusTab === "ongoing") {
-                if (progressFilter === "InTransit") return status === "shipped";
+                if (progressFilter === "InTransit") return status === "shipped" || status === "intransit";
                 if (progressFilter === "Order Confirmed")
                     return status === "processing";
-                return status === "processing" || status === "shipped";
+                return status === "processing" || status === "shipped" || status === "intransit";
             }
 
             if (statusTab === "completed") {
-                return status === "delivered";
+                if (status !== "delivered") return false;
             }
 
             if (statusTab === "failed") {
-                return status === "cancelled" || status === "failed";
+                if (status !== "cancelled" && status !== "failed") return false;
             }
 
             // Apply date filtering only if admin selected a range
@@ -714,34 +715,32 @@ export const AdminOrders: React.FC = () => {
                 {/* Dropdowns */}
                 <div className="flex flex-wrap items-center gap-3">
                     {statusTab === "ongoing" && (
-                        <>
-                            <div className="w-full sm:w-auto min-w-36">
-                                <CustomDropdown
-                                    variant="light"
-                                    options={PROGRESS_OPTIONS}
-                                    value={progressFilter}
-                                    onChange={setProgressFilter}
-                                />
-                            </div>
-
-                            <div className="w-full sm:w-auto min-w-36">
-                                <InteractiveDateRangeDropdown
-                                    fromDate={fromDate}
-                                    toDate={toDate}
-                                    onRangeChange={(from, to) => {
-                                        setFromDate(from);
-                                        setToDate(to);
-                                        setCurrentPage(1);
-                                    }}
-                                    onReset={() => {
-                                        setFromDate(null);
-                                        setToDate(null);
-                                        setCurrentPage(1);
-                                    }}
-                                />
-                            </div>
-                        </>
+                        <div className="w-full sm:w-auto min-w-36">
+                            <CustomDropdown
+                                variant="light"
+                                options={PROGRESS_OPTIONS}
+                                value={progressFilter}
+                                onChange={setProgressFilter}
+                            />
+                        </div>
                     )}
+
+                    <div className="w-full sm:w-auto min-w-36">
+                        <InteractiveDateRangeDropdown
+                            fromDate={fromDate}
+                            toDate={toDate}
+                            onRangeChange={(from, to) => {
+                                setFromDate(from);
+                                setToDate(to);
+                                setCurrentPage(1);
+                            }}
+                            onReset={() => {
+                                setFromDate(null);
+                                setToDate(null);
+                                setCurrentPage(1);
+                            }}
+                        />
+                    </div>
 
                     <div className="w-full sm:w-auto min-w-44">
                         <CustomDropdown
@@ -758,6 +757,33 @@ export const AdminOrders: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 {/* Status Summary Pill Box */}
                 <div className="flex items-center gap-2 sm:gap-4 p-1.5 bg-white border border-[#EAEAEA] rounded-xl shadow-2xs w-fit">
+                    <button
+                        type="button"
+                        onClick={() => handleStatusTabChange("all")}
+                        className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer",
+                            statusTab === "all"
+                                ? "bg-[#FAF7F2] text-[#171717]"
+                                : "text-[#737373] hover:text-[#171717]",
+                        )}
+                    >
+                        <span className="size-2 rounded-full bg-[#171717]" />
+                        <span
+                            className={cn(
+                                statusTab === "all"
+                                    ? "text-[#D4AF37]"
+                                    : "text-[#171717]",
+                            )}
+                        >
+                            All
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#F5F5F5] text-[#737373]">
+                            {statusTab === "all"
+                                ? totalCurrentCount
+                                : pagination?.total || apiOrders.length}
+                        </span>
+                    </button>
+
                     <button
                         type="button"
                         onClick={() => handleStatusTabChange("ongoing")}
@@ -779,7 +805,16 @@ export const AdminOrders: React.FC = () => {
                             Ongoing
                         </span>
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#F5F5F5] text-[#737373]">
-                            {totalCurrentCount}
+                            {statusTab === "ongoing"
+                                ? totalCurrentCount
+                                : apiOrders.filter((o) => {
+                                      const s = (o.status || "").toLowerCase();
+                                      return (
+                                          s === "processing" ||
+                                          s === "shipped" ||
+                                          s === "intransit"
+                                      );
+                                  }).length}
                         </span>
                     </button>
 
@@ -794,9 +829,23 @@ export const AdminOrders: React.FC = () => {
                         )}
                     >
                         <span className="size-2 rounded-full bg-[#10B981]" />
-                        <span>Completed</span>
+                        <span
+                            className={cn(
+                                statusTab === "completed"
+                                    ? "text-[#D4AF37]"
+                                    : "text-[#171717]",
+                            )}
+                        >
+                            Completed
+                        </span>
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#F5F5F5] text-[#737373]">
-                            {totalCurrentCount}
+                            {statusTab === "completed"
+                                ? totalCurrentCount
+                                : apiOrders.filter(
+                                      (o) =>
+                                          (o.status || "").toLowerCase() ===
+                                          "delivered",
+                                  ).length}
                         </span>
                     </button>
 
@@ -811,9 +860,24 @@ export const AdminOrders: React.FC = () => {
                         )}
                     >
                         <span className="size-2 rounded-full bg-[#EF4444]" />
-                        <span>Failed</span>
+                        <span
+                            className={cn(
+                                statusTab === "failed"
+                                    ? "text-[#D4AF37]"
+                                    : "text-[#171717]",
+                            )}
+                        >
+                            Failed
+                        </span>
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#F5F5F5] text-[#737373]">
-                            {totalCurrentCount}
+                            {statusTab === "failed"
+                                ? totalCurrentCount
+                                : apiOrders.filter((o) => {
+                                      const s = (o.status || "").toLowerCase();
+                                      return (
+                                          s === "cancelled" || s === "failed"
+                                      );
+                                  }).length}
                         </span>
                     </button>
                 </div>

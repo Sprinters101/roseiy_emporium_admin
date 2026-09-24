@@ -1,5 +1,15 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Plus, Search, Trash2, Pen, RotateCcw, X, Check, Minus, RefreshCw } from "lucide-react";
+import {
+    Plus,
+    Search,
+    Trash2,
+    Pen,
+    RotateCcw,
+    X,
+    Check,
+    Minus,
+    RefreshCw,
+} from "lucide-react";
 import { useNavigate } from "react-router";
 import type { Product } from "@/config/types";
 import { toast } from "@/components/ui/sonner";
@@ -16,8 +26,6 @@ import { useDeleteAdminProduct } from "@/service/mutations";
 import { deleteAdminProductFunc } from "@/service/apiFunc";
 import type { ProductItem, GetProductsParams } from "@/service/types";
 
-
-
 const SORT_OPTIONS = [
     { label: "Sort By: Newest", value: "newest" },
     { label: "Name: A - Z", value: "name_asc" },
@@ -28,9 +36,20 @@ const SORT_OPTIONS = [
 const CsvIcon = () => (
     <svg className="size-4 shrink-0" viewBox="0 0 20 20" fill="none">
         <rect width="20" height="20" rx="4" fill="#EAF7EE" />
-        <path d="M5 4h6.5L15 7.5V16a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" fill="#34A853" />
+        <path
+            d="M5 4h6.5L15 7.5V16a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"
+            fill="#34A853"
+        />
         <path d="M11.5 4v3.5H15" fill="#A8DAB5" />
-        <rect x="6.5" y="10" width="7" height="4.5" rx="0.5" fill="white" fillOpacity="0.9" />
+        <rect
+            x="6.5"
+            y="10"
+            width="7"
+            height="4.5"
+            rx="0.5"
+            fill="white"
+            fillOpacity="0.9"
+        />
         <path d="M6.5 12.2h7M10 10v4.5" stroke="#34A853" strokeWidth="0.8" />
     </svg>
 );
@@ -38,18 +57,36 @@ const CsvIcon = () => (
 const DocIcon = () => (
     <svg className="size-4 shrink-0" viewBox="0 0 20 20" fill="none">
         <rect width="20" height="20" rx="4" fill="#EBF3FD" />
-        <path d="M5 4h6.5L15 7.5V16a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" fill="#2563EB" />
+        <path
+            d="M5 4h6.5L15 7.5V16a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"
+            fill="#2563EB"
+        />
         <path d="M11.5 4v3.5H15" fill="#93C5FD" />
-        <path d="M7 10.5h6M7 13h4" stroke="white" strokeWidth="1" strokeLinecap="round" />
+        <path
+            d="M7 10.5h6M7 13h4"
+            stroke="white"
+            strokeWidth="1"
+            strokeLinecap="round"
+        />
     </svg>
 );
 
 const PdfIcon = () => (
     <svg className="size-4 shrink-0" viewBox="0 0 20 20" fill="none">
         <rect width="20" height="20" rx="4" fill="#FDF0F0" />
-        <path d="M5 4h6.5L15 7.5V16a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" fill="#DC2626" />
+        <path
+            d="M5 4h6.5L15 7.5V16a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"
+            fill="#DC2626"
+        />
         <path d="M11.5 4v3.5H15" fill="#FCA5A5" />
-        <text x="6" y="13.5" fill="white" fontSize="4.5" fontWeight="bold" fontFamily="sans-serif">
+        <text
+            x="6"
+            y="13.5"
+            fill="white"
+            fontSize="4.5"
+            fontWeight="bold"
+            fontFamily="sans-serif"
+        >
             PDF
         </text>
     </svg>
@@ -117,7 +154,9 @@ export const AdminProducts: React.FC = () => {
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [selectedBrand, setSelectedBrand] = useState("all");
     const [selectedSort, setSelectedSort] = useState("newest");
-    const [statusTab, setStatusTab] = useState<"all" | "available" | "outofstock">("all");
+    const [statusTab, setStatusTab] = useState<
+        "all" | "available" | "outofstock"
+    >("all");
 
     // Debounce search input (350ms) to avoid spamming the backend while typing
     useEffect(() => {
@@ -130,7 +169,13 @@ export const AdminProducts: React.FC = () => {
     // Whenever search, category, brand, status, or sorting changes, reset to page 1
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearch, selectedCategory, selectedBrand, selectedSort, statusTab]);
+    }, [
+        debouncedSearch,
+        selectedCategory,
+        selectedBrand,
+        selectedSort,
+        statusTab,
+    ]);
 
     // Reactive query parameters sent to GET /admin/products
     const queryParams: GetProductsParams = useMemo(() => {
@@ -197,7 +242,9 @@ export const AdminProducts: React.FC = () => {
 
     // Modals
     const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
-    const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+    const [productToDelete, setProductToDelete] = useState<Product | null>(
+        null,
+    );
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isBatchDeleteModalOpen, setIsBatchDeleteModalOpen] = useState(false);
 
@@ -205,7 +252,9 @@ export const AdminProducts: React.FC = () => {
     useEffect(() => {
         const raw =
             productsResponse?.data?.products ||
-            (Array.isArray(productsResponse?.data) ? productsResponse.data : []);
+            (Array.isArray(productsResponse?.data)
+                ? productsResponse.data
+                : []);
         if (Array.isArray(raw)) {
             setProductList(raw.map(mapApiProductToProduct));
         }
@@ -243,16 +292,18 @@ export const AdminProducts: React.FC = () => {
     // Server-computed total counts for status tabs
     const totalCount =
         globalAllResponse?.data?.pagination?.total ??
-        (statusTab === "all" ? productsResponse?.data?.pagination?.total ?? 0 : 0);
+        (statusTab === "all"
+            ? (productsResponse?.data?.pagination?.total ?? 0)
+            : 0);
     const availableCount =
         globalAvailableResponse?.data?.pagination?.total ??
         (statusTab === "available"
-            ? productsResponse?.data?.pagination?.total ?? 0
+            ? (productsResponse?.data?.pagination?.total ?? 0)
             : 0);
     const outOfStockCount =
         globalOutOfStockResponse?.data?.pagination?.total ??
         (statusTab === "outofstock"
-            ? productsResponse?.data?.pagination?.total ?? 0
+            ? (productsResponse?.data?.pagination?.total ?? 0)
             : 0);
 
     // Selection handlers for current page items
@@ -272,7 +323,9 @@ export const AdminProducts: React.FC = () => {
 
     const handleToggleSelect = (id: string) => {
         setSelectedIds((prev) =>
-            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+            prev.includes(id)
+                ? prev.filter((item) => item !== id)
+                : [...prev, id],
         );
     };
 
@@ -287,7 +340,9 @@ export const AdminProducts: React.FC = () => {
         const target = productToDelete;
         deleteProduct(target.id, {
             onSuccess: () => {
-                setProductList((prev) => prev.filter((p) => p.id !== target.id));
+                setProductList((prev) =>
+                    prev.filter((p) => p.id !== target.id),
+                );
                 setDeletedProducts((prev) => [target, ...prev]);
                 setSelectedIds((prev) => prev.filter((id) => id !== target.id));
                 setIsDeleteModalOpen(false);
@@ -295,12 +350,13 @@ export const AdminProducts: React.FC = () => {
             },
             onError: () => {
                 // Fallback for mock/local IDs not in backend
-                setProductList((prev) => prev.filter((p) => p.id !== target.id));
+                setProductList((prev) =>
+                    prev.filter((p) => p.id !== target.id),
+                );
                 setDeletedProducts((prev) => [target, ...prev]);
                 setSelectedIds((prev) => prev.filter((id) => id !== target.id));
                 setIsDeleteModalOpen(false);
                 setProductToDelete(null);
-                toast.success(`"${target.name}" moved to Recycle Bin`);
             },
         });
     };
@@ -314,7 +370,6 @@ export const AdminProducts: React.FC = () => {
             await Promise.allSettled(
                 selectedIds.map((id) => deleteAdminProductFunc(id)),
             );
-            toast.success(`${targets.length} products moved to Recycle Bin`);
         } catch {
             toast.error("An error occurred during batch deletion");
         } finally {
@@ -460,20 +515,9 @@ export const AdminProducts: React.FC = () => {
         }
 
         window.print();
-        toast.info(`Preparing print / PDF for ${itemsToExport.length} products`);
-    };
-
-    // Restore from Recycle Bin
-    const handleRestore = (product: Product) => {
-        setDeletedProducts((prev) => prev.filter((p) => p.id !== product.id));
-        setProductList((prev) => [product, ...prev]);
-        toast.success(`"${product.name}" restored to catalog`);
-    };
-
-    // Permanently remove from Recycle Bin
-    const handlePermanentDelete = (id: string) => {
-        setDeletedProducts((prev) => prev.filter((p) => p.id !== id));
-        toast.success("Product permanently deleted");
+        toast.info(
+            `Preparing print / PDF for ${itemsToExport.length} products`,
+        );
     };
 
     // Columns Definition for CustomTable
@@ -490,16 +534,22 @@ export const AdminProducts: React.FC = () => {
                             allSelected
                                 ? "bg-[#171717] border-[#171717] text-white"
                                 : someSelected
-                                ? "bg-[#171717] border-[#171717] text-white"
-                                : "bg-white border-[#D5D5D5] hover:border-[#999999]",
+                                  ? "bg-[#171717] border-[#171717] text-white"
+                                  : "bg-white border-[#D5D5D5] hover:border-[#999999]",
                         )}
                         aria-label="Select all"
                     >
                         {allSelected && (
-                            <Check className="size-3 text-white" strokeWidth={3} />
+                            <Check
+                                className="size-3 text-white"
+                                strokeWidth={3}
+                            />
                         )}
                         {someSelected && (
-                            <Minus className="size-3 text-white" strokeWidth={3} />
+                            <Minus
+                                className="size-3 text-white"
+                                strokeWidth={3}
+                            />
                         )}
                     </button>
                 </div>
@@ -525,7 +575,10 @@ export const AdminProducts: React.FC = () => {
                             aria-label={`Select ${product.name}`}
                         >
                             {isSelected && (
-                                <Check className="size-3 text-white" strokeWidth={3} />
+                                <Check
+                                    className="size-3 text-white"
+                                    strokeWidth={3}
+                                />
                             )}
                         </button>
                     </div>
@@ -616,11 +669,7 @@ export const AdminProducts: React.FC = () => {
                         </span>
                     );
                 }
-                return (
-                    <span className="text-sm text-[#171717]">
-                        0 Pieces
-                    </span>
-                );
+                return <span className="text-sm text-[#171717]">0 Pieces</span>;
             },
         },
         {
@@ -699,19 +748,6 @@ export const AdminProducts: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3 self-start sm:self-auto">
-                    {/* Recycle Bin Button */}
-                    <button
-                        type="button"
-                        onClick={() => setIsRecycleBinOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#D5D5D5] bg-white text-[#171717] hover:bg-[#FAF7F2] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
-                    >
-                        <span>Recycle Bin</span>
-                        <Trash2 className="size-4 text-[#171717]" />
-                        {deletedProducts.length > 0 && (
-                            <span className="size-2 rounded-full bg-[#EF4444]" />
-                        )}
-                    </button>
-
                     {/* Add Product Button */}
                     <button
                         type="button"
@@ -931,13 +967,20 @@ export const AdminProducts: React.FC = () => {
                         columns={columns}
                         pagination={true}
                         pageSize={pageSize}
-                        currentPage={productsResponse?.data?.pagination?.page || page}
-                        totalItems={productsResponse?.data?.pagination?.total ?? productList.length}
+                        currentPage={
+                            productsResponse?.data?.pagination?.page || page
+                        }
+                        totalItems={
+                            productsResponse?.data?.pagination?.total ??
+                            productList.length
+                        }
                         onPageChange={(newPage) => setPage(newPage)}
                         itemLabel="Products"
                         emptyMessage="No products match your selected filters."
                         rowClassName={(product) =>
-                            selectedIds.includes(product.id) ? "bg-[#FAF8F5]" : ""
+                            selectedIds.includes(product.id)
+                                ? "bg-[#FAF8F5]"
+                                : ""
                         }
                     />
                 </div>
@@ -976,92 +1019,6 @@ export const AdminProducts: React.FC = () => {
                 confirmText={`Delete (${selectedIds.length})`}
                 disclaimer="Deleted products won't be shown to customers"
             />
-
-            {/* Recycle Bin Drawer / Modal */}
-            {isRecycleBinOpen && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 backdrop-blur-xs">
-                    <div className="bg-white rounded-2xl max-w-xl w-full p-6 sm:p-7 shadow-2xl animate-scaleUp">
-                        <div className="flex items-center justify-between pb-4 border-b border-[#F0F0F0]">
-                            <div className="flex items-center gap-2">
-                                <Trash2 className="size-5 text-[#D4AF37]" />
-                                <h2 className="text-xl font-bold font-playfair text-[#171717]">
-                                    Recycle Bin
-                                </h2>
-                                <span className="px-2 py-0.5 rounded-full bg-[#EEEEEE] text-xs font-semibold text-[#555555]">
-                                    {deletedProducts.length}
-                                </span>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setIsRecycleBinOpen(false)}
-                                className="size-8 rounded-full flex items-center justify-center text-[#888888] hover:text-[#171717] hover:bg-[#F5F5F5] transition-colors cursor-pointer"
-                            >
-                                <X className="size-4.5" />
-                            </button>
-                        </div>
-
-                        <div className="py-4 max-h-96 overflow-y-auto divide-y divide-[#F5F5F5]">
-                            {deletedProducts.length === 0 ? (
-                                <div className="py-12 text-center text-sm text-[#737373]">
-                                    Recycle Bin is empty. No deleted products.
-                                </div>
-                            ) : (
-                                deletedProducts.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="py-3 flex items-center justify-between gap-3"
-                                    >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <img
-                                                src={item.image}
-                                                alt={item.name}
-                                                className="size-10 rounded-lg object-contain bg-[#FAF7F2] p-1 border border-[#EEEEEE] shrink-0"
-                                            />
-                                            <div className="truncate">
-                                                <h4 className="text-sm font-semibold text-[#171717] truncate">
-                                                    {item.name}
-                                                </h4>
-                                                <p className="text-xs text-[#737373]">
-                                                    {item.category} • ₦{item.price.toLocaleString("en-NG")}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRestore(item)}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D5D5D5] text-xs font-semibold text-[#171717] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
-                                            >
-                                                <RotateCcw className="size-3.5 text-[#10B981]" />
-                                                <span>Restore</span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handlePermanentDelete(item.id)}
-                                                className="p-1.5 rounded-lg text-[#EF4444] hover:bg-red-50 transition-colors cursor-pointer"
-                                                title="Permanently Delete"
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-
-                        <div className="flex justify-end pt-4 border-t border-[#F0F0F0]">
-                            <button
-                                type="button"
-                                onClick={() => setIsRecycleBinOpen(false)}
-                                className="px-5 py-2 text-sm bg-[#171717] text-white font-semibold rounded-lg hover:bg-[#262626] transition-colors cursor-pointer"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

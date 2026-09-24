@@ -41,6 +41,22 @@ export interface LoginResponseData {
 export type LoginResponse = ApiResponse<LoginResponseData>;
 export type AdminMeResponse = ApiResponse<{ admin: AdminUser }>;
 
+export interface UpdateAdminProfilePayload {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+}
+
+export type UpdateAdminProfileResponse = ApiResponse<{ admin: AdminUser }>;
+
+export interface ChangeAdminPasswordPayload {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+}
+
+export type ChangeAdminPasswordResponse = ApiResponse<null>;
+
 // ----------------------------------------------------------------------
 // 2. Categories Types
 // ----------------------------------------------------------------------
@@ -349,6 +365,16 @@ export interface AdminOrderDetail {
     orderNumber: string;
     customer?: AdminOrderCustomer;
     deliveryAddress?: AdminOrderDeliveryAddress;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phoneNumber?: string;
+    addressLine1?: string;
+    addressLine2?: string | null;
+    city?: string;
+    state?: string;
+    postalCode?: string | null;
+    country?: string;
     subtotal: string | number;
     deliveryFee: string | number;
     total: string | number;
@@ -487,4 +513,49 @@ export type AdminDeliverySettingsResponse = ApiResponse<{
 export type PublicDeliveryAreasResponse = ApiResponse<{
     deliveryAreas: DeliveryArea[];
     settings: DeliverySetting;
+}>;
+
+// ----------------------------------------------------------------------
+// 9. Admin Dashboard Types
+// ----------------------------------------------------------------------
+
+export interface DashboardSalesSummary {
+    totalSales: string;
+    currency: string;
+}
+
+export interface DashboardOrdersSummary {
+    total: number;
+    processing: number;
+    shipped: number;
+    delivered: number;
+    cancelled: number;
+}
+
+export interface DashboardCustomerSummary {
+    total: number;
+    verified: number;
+    pending: number;
+}
+
+export interface DashboardInventorySummary {
+    totalProducts: number;
+    activeProducts: number;
+    inactiveProducts: number;
+    totalStock: number;
+    lowStockCount: number;
+    lowStockThreshold: number;
+}
+
+export interface DashboardData {
+    salesSummary: DashboardSalesSummary;
+    ordersSummary: DashboardOrdersSummary;
+    customerSummary: DashboardCustomerSummary;
+    inventorySummary: DashboardInventorySummary;
+    recentOrders: AdminOrderDetail[];
+    lowStockProducts: any[];
+}
+
+export type AdminDashboardResponse = ApiResponse<{
+    dashboard: DashboardData;
 }>;

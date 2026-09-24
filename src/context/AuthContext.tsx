@@ -24,6 +24,7 @@ export interface AuthContextType {
     isAuthenticated: boolean;
     login: (token: string, userData?: UserProfile) => void;
     logout: () => void;
+    updateUser: (userData: Partial<UserProfile>) => void;
 }
 
 const TOKEN_KEY = "accessToken";
@@ -124,6 +125,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
     };
 
+    const updateUser = (userData: Partial<UserProfile>) => {
+        setUser((prev) => {
+            const updated = prev ? { ...prev, ...userData } : (userData as UserProfile);
+            Cookies.set(USER_KEY, JSON.stringify(updated), {
+                expires: 7,
+                path: "/",
+            });
+            localStorage.setItem(USER_KEY, JSON.stringify(updated));
+            return updated;
+        });
+    };
+
     return (
         <AuthContext.Provider
             value={{
@@ -133,6 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 isAuthenticated: Boolean(token),
                 login,
                 logout,
+                updateUser,
             }}
         >
             {children}

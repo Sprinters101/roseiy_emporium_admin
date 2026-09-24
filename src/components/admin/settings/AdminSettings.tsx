@@ -1,8 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowLeft, Eye, EyeOff, Pen, Search } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { useGetAdminMe } from "@/service/queries";
+import {
+    useUpdateAdminProfile,
+    useChangeAdminPassword,
+} from "@/service/mutations";
 
 interface AdminUser {
     id: string;
@@ -140,6 +146,11 @@ const AdminEmptyIllustration = () => (
 );
 
 export const AdminSettings: React.FC = () => {
+    const { user, updateUser } = useAuth();
+    const { data: adminMeData } = useGetAdminMe();
+    const updateProfileMutation = useUpdateAdminProfile();
+    const changePasswordMutation = useChangeAdminPassword();
+
     const [activeTab, setActiveTab] = useState<"general" | "admins" | "roles">(
         "general",
     );
@@ -149,11 +160,48 @@ export const AdminSettings: React.FC = () => {
     // General Profile state
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [profileData, setProfileData] = useState({
-        fullName: "Roseiy Bolanle",
-        role: "Super Administrator",
-        phoneNumber: "091 2345 6789",
-        emailAddress: "hello@roseiyemporium.com",
+        fullName: "",
+        role: "",
+        phoneNumber: "",
+        emailAddress: "",
     });
+
+    // Format role helper
+    const formatRole = (r?: string) => {
+        if (!r) return "Administrator";
+        return r
+            .split("_")
+            .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" ");
+    };
+
+    // Get current profile data helper
+    const getInitialProfileData = () => {
+        const current = adminMeData?.data?.admin || (user as any);
+        if (current) {
+            const first = current.firstName || "";
+            const last = current.lastName || "";
+            const full = `${first} ${last}`.trim();
+            return {
+                fullName: full,
+                role: formatRole(current.role),
+                phoneNumber:
+                    current.phoneNumber || current.phone || "091 2345 6789",
+                emailAddress: current.email || "",
+            };
+        }
+        return {
+            fullName: "",
+            role: "Administrator",
+            phoneNumber: "091 2345 6789",
+            emailAddress: "",
+        };
+    };
+
+    useEffect(() => {
+        const data = getInitialProfileData();
+        setProfileData(data);
+    }, [adminMeData, user]);
 
     // General Business state
     const [isEditingBusiness, setIsEditingBusiness] = useState(false);
@@ -163,14 +211,22 @@ export const AdminSettings: React.FC = () => {
         emailAddress: "support@roseiyemporium.com",
         storeAddress: "16 Pinnock Beach Rd, Lekki Phase 1, Lagos",
     });
+    const [savedBusinessData, setSavedBusinessData] = useState({
+        businessName: "Roseiy Emporium",
+        phoneNumber: "091 2345 6789",
+        emailAddress: "support@roseiyemporium.com",
+        storeAddress: "16 Pinnock Beach Rd, Lekki Phase 1, Lagos",
+    });
 
     // General Password & Security state
     const [isEditingPassword, setIsEditingPassword] = useState(false);
     const [passwordData, setPasswordData] = useState({
-        newPassword: "Azulisfinished",
-        confirmPassword: "Azulisfinished",
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
         lastChanged: "12 June 2026 at 10:43PM",
     });
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -211,32 +267,97 @@ export const AdminSettings: React.FC = () => {
     );
 
     // Handle Save General Profile
-    const handleSaveProfile = (e: React.FormEvent) => {
+    const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
+        const parts = profileData.fullName.trim().split(/\s+/);
+        const firstName = parts[0] || "";
+        const lastName = parts.slice(1).join(" ") || "";
+
+        try {
+            const res = await updateProfileMutation.mutateAsync({
+                firstName,
+                lastName,
+                email: profileData.emailAddress,
+            });
+            if (res?.data?.admin) {
+                updateUser?.(res.data.admin);
+            }
+            setIsEditingProfile(false);
+        } catch {
+            // error handled by mutation onError toast
+        }
+    };
+
+    // Handle Cancel General Profile
+    const handleCancelProfile = () => {
+        setProfileData(getInitialProfileData());
         setIsEditingProfile(false);
-        toast.success("Profile information updated successfully");
     };
 
     // Handle Save General Business
     const handleSaveBusiness = (e: React.FormEvent) => {
         e.preventDefault();
+        setSavedBusinessData(businessData);
         setIsEditingBusiness(false);
         toast.success("Business information updated successfully");
     };
 
+    // Handle Cancel General Business
+    const handleCancelBusiness = () => {
+        setBusinessData(savedBusinessData);
+        setIsEditingBusiness(false);
+    };
+
     // Handle Update General Password
-    const handleUpdatePassword = (e: React.FormEvent) => {
+    const handleUpdatePassword = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (passwordData.newPassword !== passwordData.confirmPassword) {
-            toast.error("Passwords do not match");
+
+        if (!passwordData.currentPassword) {
+            toast.error("Please enter your current password");
             return;
         }
-        setIsEditingPassword(false);
+
+        if (passwordData.newPassword.length < 8) {
+            toast.error("New password must be at least 8 characters long");
+            return;
+        }
+
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            toast.error("New password and confirmation password do not match");
+            return;
+        }
+
+        try {
+            await changePasswordMutation.mutateAsync({
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword,
+                confirmPassword: passwordData.confirmPassword,
+            });
+            setIsEditingPassword(false);
+            setPasswordData((prev) => ({
+                ...prev,
+                currentPassword: "",
+                newPassword: "",
+                confirmPassword: "",
+                lastChanged: `${new Date().getDate()} ${new Date().toLocaleString("en-US", { month: "long" })} ${new Date().getFullYear()} at 10:43PM`,
+            }));
+        } catch {
+            // error handled by mutation onError toast
+        }
+    };
+
+    // Handle Cancel General Password
+    const handleCancelPassword = () => {
         setPasswordData((prev) => ({
             ...prev,
-            lastChanged: `${new Date().getDate()} ${new Date().toLocaleString("en-US", { month: "long" })} ${new Date().getFullYear()} at 10:43PM`,
+            currentPassword: "",
+            newPassword: "",
+            confirmPassword: "",
         }));
-        toast.success("Password updated successfully");
+        setShowCurrentPassword(false);
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
+        setIsEditingPassword(false);
     };
 
     // Handle Update Selected Admin Profile
@@ -248,6 +369,17 @@ export const AdminSettings: React.FC = () => {
         );
         setIsAdminEditingProfile(false);
         toast.success(`Admin profile updated for ${selectedAdmin.name}`);
+    };
+
+    // Handle Cancel Selected Admin Profile
+    const handleCancelAdminProfile = () => {
+        if (selectedAdmin) {
+            const original = admins.find((a) => a.id === selectedAdmin.id);
+            if (original) {
+                setSelectedAdmin({ ...original });
+            }
+        }
+        setIsAdminEditingProfile(false);
     };
 
     // Handle Update Selected Admin Password
@@ -271,6 +403,17 @@ export const AdminSettings: React.FC = () => {
         }
         setIsAdminEditingPassword(false);
         toast.success("Admin password updated successfully");
+    };
+
+    // Handle Cancel Selected Admin Password
+    const handleCancelAdminPassword = () => {
+        setAdminPasswordForm({
+            newPassword: "Azulisfinished",
+            confirmPassword: "Azulisfinished",
+        });
+        setShowAdminNewPassword(false);
+        setShowAdminConfirmPassword(false);
+        setIsAdminEditingPassword(false);
     };
 
     // Handle Change Selected Admin Status
@@ -383,24 +526,35 @@ export const AdminSettings: React.FC = () => {
                                 </h2>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    if (isAdminEditingProfile) {
-                                        handleSaveAdminProfile(e);
-                                    } else {
-                                        setIsAdminEditingProfile(true);
-                                    }
-                                }}
-                                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
-                            >
-                                <span>
-                                    {isAdminEditingProfile
-                                        ? "Save Changes"
-                                        : "Edit"}
-                                </span>
-                                <Pen className="size-3.5" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {isAdminEditingProfile && (
+                                    <button
+                                        type="button"
+                                        onClick={handleCancelAdminProfile}
+                                        className="px-4 py-1.5 rounded-xl border border-[#E5E5E5] hover:bg-[#F5F5F5] text-[#737373] hover:text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        if (isAdminEditingProfile) {
+                                            handleSaveAdminProfile(e);
+                                        } else {
+                                            setIsAdminEditingProfile(true);
+                                        }
+                                    }}
+                                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+                                >
+                                    <span>
+                                        {isAdminEditingProfile
+                                            ? "Save Changes"
+                                            : "Edit"}
+                                    </span>
+                                    <Pen className="size-3.5" />
+                                </button>
+                            </div>
                         </div>
 
                         {!isAdminEditingProfile ? (
@@ -506,14 +660,9 @@ export const AdminSettings: React.FC = () => {
                                     </label>
                                     <input
                                         type="email"
+                                        disabled
                                         value={selectedAdmin.email}
-                                        onChange={(e) =>
-                                            setSelectedAdmin({
-                                                ...selectedAdmin,
-                                                email: e.target.value,
-                                            })
-                                        }
-                                        className="w-full px-4 py-3 text-xs sm:text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] text-[#171717] transition-colors"
+                                        className="w-full px-4 py-3 text-xs sm:text-sm bg-[#FAFAFA] border border-[#E5E5E5] rounded-xl text-[#888888] cursor-not-allowed"
                                     />
                                 </div>
                             </form>
@@ -532,24 +681,35 @@ export const AdminSettings: React.FC = () => {
                                 </h2>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    if (isAdminEditingPassword) {
-                                        handleSaveAdminPassword(e);
-                                    } else {
-                                        setIsAdminEditingPassword(true);
-                                    }
-                                }}
-                                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
-                            >
-                                <span>
-                                    {isAdminEditingPassword
-                                        ? "Update Password"
-                                        : "Change Password"}
-                                </span>
-                                <Pen className="size-3.5" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {isAdminEditingPassword && (
+                                    <button
+                                        type="button"
+                                        onClick={handleCancelAdminPassword}
+                                        className="px-4 py-1.5 rounded-xl border border-[#E5E5E5] hover:bg-[#F5F5F5] text-[#737373] hover:text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        if (isAdminEditingPassword) {
+                                            handleSaveAdminPassword(e);
+                                        } else {
+                                            setIsAdminEditingPassword(true);
+                                        }
+                                    }}
+                                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+                                >
+                                    <span>
+                                        {isAdminEditingPassword
+                                            ? "Update Password"
+                                            : "Change Password"}
+                                    </span>
+                                    <Pen className="size-3.5" />
+                                </button>
+                            </div>
                         </div>
 
                         {!isAdminEditingPassword ? (
@@ -691,13 +851,32 @@ export const AdminSettings: React.FC = () => {
                         </p>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={handleCreateAdmin}
-                        className="px-8 py-2.5 bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold text-xs sm:text-sm rounded-lg transition-all shadow-xs cursor-pointer self-start sm:self-auto"
-                    >
-                        Save
-                    </button>
+                    <div className="flex items-center gap-3 self-start sm:self-auto">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsAddingAdmin(false);
+                                setNewAdminForm({
+                                    fullName: "",
+                                    role: "Administrator",
+                                    phoneNumber: "",
+                                    emailAddress: "",
+                                    password: "Azulisfinished",
+                                    confirmPassword: "Azulisfinished",
+                                });
+                            }}
+                            className="px-5 py-2.5 rounded-lg border border-[#E5E5E5] hover:bg-[#F5F5F5] text-[#737373] hover:text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleCreateAdmin}
+                            className="px-8 py-2.5 bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold text-xs sm:text-sm rounded-lg transition-all shadow-xs cursor-pointer"
+                        >
+                            Save
+                        </button>
+                    </div>
                 </div>
 
                 <form onSubmit={handleCreateAdmin} className="space-y-6">
@@ -979,22 +1158,39 @@ export const AdminSettings: React.FC = () => {
                                 </h2>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    if (isEditingProfile) {
-                                        handleSaveProfile(e);
-                                    } else {
-                                        setIsEditingProfile(true);
-                                    }
-                                }}
-                                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
-                            >
-                                <span>
-                                    {isEditingProfile ? "Save Changes" : "Edit"}
-                                </span>
-                                <Pen className="size-3.5" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {isEditingProfile && (
+                                    <button
+                                        type="button"
+                                        disabled={updateProfileMutation.isPending}
+                                        onClick={handleCancelProfile}
+                                        className="px-4 py-1.5 rounded-xl border border-[#E5E5E5] hover:bg-[#F5F5F5] text-[#737373] hover:text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-60"
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    disabled={updateProfileMutation.isPending}
+                                    onClick={(e) => {
+                                        if (isEditingProfile) {
+                                            handleSaveProfile(e);
+                                        } else {
+                                            setIsEditingProfile(true);
+                                        }
+                                    }}
+                                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-60"
+                                >
+                                    <span>
+                                        {isEditingProfile
+                                            ? updateProfileMutation.isPending
+                                                ? "Saving..."
+                                                : "Save Changes"
+                                            : "Edit"}
+                                    </span>
+                                    <Pen className="size-3.5" />
+                                </button>
+                            </div>
                         </div>
 
                         {!isEditingProfile ? (
@@ -1094,14 +1290,9 @@ export const AdminSettings: React.FC = () => {
                                     </label>
                                     <input
                                         type="email"
+                                        disabled
                                         value={profileData.emailAddress}
-                                        onChange={(e) =>
-                                            setProfileData({
-                                                ...profileData,
-                                                emailAddress: e.target.value,
-                                            })
-                                        }
-                                        className="w-full px-4 py-3 text-xs sm:text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] text-[#171717] transition-colors"
+                                        className="w-full px-4 py-3 text-xs sm:text-sm bg-[#FAFAFA] border border-[#E5E5E5] rounded-xl text-[#888888] cursor-not-allowed"
                                     />
                                 </div>
                             </form>
@@ -1120,24 +1311,35 @@ export const AdminSettings: React.FC = () => {
                                 </h2>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    if (isEditingBusiness) {
-                                        handleSaveBusiness(e);
-                                    } else {
-                                        setIsEditingBusiness(true);
-                                    }
-                                }}
-                                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
-                            >
-                                <span>
-                                    {isEditingBusiness
-                                        ? "Save Changes"
-                                        : "Edit"}
-                                </span>
-                                <Pen className="size-3.5" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {isEditingBusiness && (
+                                    <button
+                                        type="button"
+                                        onClick={handleCancelBusiness}
+                                        className="px-4 py-1.5 rounded-xl border border-[#E5E5E5] hover:bg-[#F5F5F5] text-[#737373] hover:text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        if (isEditingBusiness) {
+                                            handleSaveBusiness(e);
+                                        } else {
+                                            setIsEditingBusiness(true);
+                                        }
+                                    }}
+                                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+                                >
+                                    <span>
+                                        {isEditingBusiness
+                                            ? "Save Changes"
+                                            : "Edit"}
+                                    </span>
+                                    <Pen className="size-3.5" />
+                                </button>
+                            </div>
                         </div>
 
                         {!isEditingBusiness ? (
@@ -1268,24 +1470,39 @@ export const AdminSettings: React.FC = () => {
                                 </h2>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    if (isEditingPassword) {
-                                        handleUpdatePassword(e);
-                                    } else {
-                                        setIsEditingPassword(true);
-                                    }
-                                }}
-                                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
-                            >
-                                <span>
-                                    {isEditingPassword
-                                        ? "Update Password"
-                                        : "Change Password"}
-                                </span>
-                                <Pen className="size-3.5" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {isEditingPassword && (
+                                    <button
+                                        type="button"
+                                        disabled={changePasswordMutation.isPending}
+                                        onClick={handleCancelPassword}
+                                        className="px-4 py-1.5 rounded-xl border border-[#E5E5E5] hover:bg-[#F5F5F5] text-[#737373] hover:text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-60"
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    disabled={changePasswordMutation.isPending}
+                                    onClick={(e) => {
+                                        if (isEditingPassword) {
+                                            handleUpdatePassword(e);
+                                        } else {
+                                            setIsEditingPassword(true);
+                                        }
+                                    }}
+                                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-60"
+                                >
+                                    <span>
+                                        {isEditingPassword
+                                            ? changePasswordMutation.isPending
+                                                ? "Updating..."
+                                                : "Update Password"
+                                            : "Change Password"}
+                                    </span>
+                                    <Pen className="size-3.5" />
+                                </button>
+                            </div>
                         </div>
 
                         {!isEditingPassword ? (
@@ -1315,6 +1532,48 @@ export const AdminSettings: React.FC = () => {
                                 onSubmit={handleUpdatePassword}
                                 className="grid grid-cols-1 sm:grid-cols-2 gap-5"
                             >
+                                <div className="sm:col-span-2">
+                                    <label className="text-xs font-semibold text-[#171717] block mb-1.5">
+                                        Current Password
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type={
+                                                showCurrentPassword
+                                                    ? "text"
+                                                    : "password"
+                                            }
+                                            value={
+                                                passwordData.currentPassword
+                                            }
+                                            onChange={(e) =>
+                                                setPasswordData({
+                                                    ...passwordData,
+                                                    currentPassword:
+                                                        e.target.value,
+                                                })
+                                            }
+                                            placeholder="Enter your current password"
+                                            className="w-full pl-4 pr-10 py-3 text-xs sm:text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] text-[#171717] transition-colors"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setShowCurrentPassword(
+                                                    !showCurrentPassword,
+                                                )
+                                            }
+                                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#888888] hover:text-[#171717] transition-colors cursor-pointer"
+                                        >
+                                            {showCurrentPassword ? (
+                                                <EyeOff className="size-4" />
+                                            ) : (
+                                                <Eye className="size-4" />
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <div>
                                     <label className="text-xs font-semibold text-[#171717] block mb-1.5">
                                         New Password
@@ -1333,6 +1592,7 @@ export const AdminSettings: React.FC = () => {
                                                     newPassword: e.target.value,
                                                 })
                                             }
+                                            placeholder="Minimum 8 characters"
                                             className="w-full pl-4 pr-10 py-3 text-xs sm:text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] text-[#171717] transition-colors"
                                         />
                                         <button
@@ -1372,6 +1632,7 @@ export const AdminSettings: React.FC = () => {
                                                         e.target.value,
                                                 })
                                             }
+                                            placeholder="Confirm new password"
                                             className="w-full pl-4 pr-10 py-3 text-xs sm:text-sm bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#D4AF37] text-[#171717] transition-colors"
                                         />
                                         <button

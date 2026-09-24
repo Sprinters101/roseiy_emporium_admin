@@ -3,6 +3,8 @@ import Cookies from "js-cookie";
 import { toast } from "@/components/ui/sonner";
 import {
     loginFunc,
+    updateAdminProfileFunc,
+    changeAdminPasswordFunc,
     createCategoryFunc,
     updateCategoryFunc,
     deleteCategoryFunc,
@@ -21,6 +23,8 @@ import {
 import { queryKeys } from "./queries";
 import type {
     LoginPayload,
+    UpdateAdminProfilePayload,
+    ChangeAdminPasswordPayload,
     CreateCategoryPayload,
     UpdateCategoryPayload,
     CreateBrandPayload,
@@ -73,6 +77,56 @@ export const useLogin = () => {
                 err?.response?.data?.message ||
                     err?.message ||
                     "Invalid email or password",
+            );
+        },
+    });
+};
+
+/**
+ * Hook for Updating Current Admin Profile
+ * PATCH /admin/auth/profile
+ */
+export const useUpdateAdminProfile = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: UpdateAdminProfilePayload) =>
+            updateAdminProfileFunc(payload),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.adminMe });
+            queryClient.invalidateQueries({ queryKey: queryKeys.userInfo });
+            toast.success(
+                data?.message || "Admin profile updated successfully",
+            );
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to update profile",
+            );
+        },
+    });
+};
+
+/**
+ * Hook for Changing Current Admin Password
+ * PATCH /admin/auth/password
+ */
+export const useChangeAdminPassword = () => {
+    return useMutation({
+        mutationFn: (payload: ChangeAdminPasswordPayload) =>
+            changeAdminPasswordFunc(payload),
+        onSuccess: (data) => {
+            toast.success(
+                data?.message || "Admin password changed successfully",
+            );
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to change password. Please check your current password and try again.",
             );
         },
     });

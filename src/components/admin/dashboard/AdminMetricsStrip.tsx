@@ -1,11 +1,13 @@
 import React from "react";
 import { CircleDollarSign, CalendarDays, ShoppingBag, Package } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface AdminMetricsStripProps {
     totalRevenue?: number;
     todayRevenue?: number;
     totalOrders?: number;
     totalProducts?: number;
+    isLoading?: boolean;
 }
 
 export const AdminMetricsStrip: React.FC<AdminMetricsStripProps> = ({
@@ -13,6 +15,7 @@ export const AdminMetricsStrip: React.FC<AdminMetricsStripProps> = ({
     todayRevenue = 0,
     totalOrders = 0,
     totalProducts = 0,
+    isLoading = false,
 }) => {
     // Format currency in Nigerian Naira ₦
     const formatCurrency = (val: number) => {
@@ -25,24 +28,28 @@ export const AdminMetricsStrip: React.FC<AdminMetricsStripProps> = ({
             value: formatCurrency(totalRevenue),
             icon: CircleDollarSign,
             updated: "Updated few seconds ago",
+            skeletonWidth: "w-32 sm:w-36",
         },
         {
             label: "Today's Revenue",
             value: formatCurrency(todayRevenue),
             icon: CalendarDays,
             updated: "Updated few seconds ago",
+            skeletonWidth: "w-28 sm:w-32",
         },
         {
             label: "Total Orders",
             value: totalOrders.toLocaleString(),
             icon: ShoppingBag,
             updated: "Updated few seconds ago",
+            skeletonWidth: "w-20 sm:w-24",
         },
         {
             label: "Total Products",
             value: totalProducts.toLocaleString(),
             icon: Package,
             updated: "Updated few seconds ago",
+            skeletonWidth: "w-20 sm:w-24",
         },
     ];
 
@@ -68,9 +75,15 @@ export const AdminMetricsStrip: React.FC<AdminMetricsStripProps> = ({
                                 <span className="text-xs sm:text-sm font-medium text-[#999999] leading-tight mb-1">
                                     {item.label}
                                 </span>
-                                <span className="text-2xl sm:text-3xl font-bold font-hanken text-white tracking-tight leading-tight">
-                                    {item.value}
-                                </span>
+                                {isLoading ? (
+                                    <Skeleton
+                                        className={`h-7 sm:h-8.5 ${item.skeletonWidth} my-0.5 bg-[#252525] rounded-md`}
+                                    />
+                                ) : (
+                                    <span className="text-2xl sm:text-3xl font-bold font-hanken text-white tracking-tight leading-tight">
+                                        {item.value}
+                                    </span>
+                                )}
                                 <span className="text-[11px] text-[#6b7280] font-medium mt-1">
                                     {item.updated}
                                 </span>

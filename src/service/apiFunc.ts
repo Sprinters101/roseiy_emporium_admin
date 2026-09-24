@@ -3,6 +3,10 @@ import type {
     LoginPayload,
     LoginResponse,
     AdminMeResponse,
+    UpdateAdminProfilePayload,
+    UpdateAdminProfileResponse,
+    ChangeAdminPasswordPayload,
+    ChangeAdminPasswordResponse,
     CategoryListResponse,
     CategoryResponse,
     CreateCategoryPayload,
@@ -38,6 +42,7 @@ import type {
     UpdateDeliverySettingPayload,
     AdminDeliverySettingsResponse,
     PublicDeliveryAreasResponse,
+    AdminDashboardResponse,
 } from "./types";
 
 // ============================================================================
@@ -71,6 +76,34 @@ export const getAdminMeFunc = async (): Promise<AdminMeResponse> => {
  * Alias for getAdminMeFunc matching user reference
  */
 export const getUserInfoFunc = getAdminMeFunc;
+
+/**
+ * Update Current Admin Profile
+ * PATCH /admin/auth/profile
+ */
+export const updateAdminProfileFunc = async (
+    payload: UpdateAdminProfilePayload,
+): Promise<UpdateAdminProfileResponse> => {
+    const response = await axiosInstance.patch<UpdateAdminProfileResponse>(
+        "/admin/auth/profile",
+        payload,
+    );
+    return response.data;
+};
+
+/**
+ * Change Current Admin Password
+ * PATCH /admin/auth/password
+ */
+export const changeAdminPasswordFunc = async (
+    payload: ChangeAdminPasswordPayload,
+): Promise<ChangeAdminPasswordResponse> => {
+    const response = await axiosInstance.patch<ChangeAdminPasswordResponse>(
+        "/admin/auth/password",
+        payload,
+    );
+    return response.data;
+};
 
 // ============================================================================
 // 2. Categories Endpoints (Admin)
@@ -519,10 +552,9 @@ export const deleteAdminDeliveryAreaFunc = async (
  */
 export const getAdminDeliverySettingsFunc =
     async (): Promise<AdminDeliverySettingsResponse> => {
-        const response =
-            await axiosInstance.get<AdminDeliverySettingsResponse>(
-                "/admin/delivery-settings",
-            );
+        const response = await axiosInstance.get<AdminDeliverySettingsResponse>(
+            "/admin/delivery-settings",
+        );
         return response.data;
     };
 
@@ -533,11 +565,10 @@ export const getAdminDeliverySettingsFunc =
 export const updateAdminDeliverySettingsFunc = async (
     payload: UpdateDeliverySettingPayload,
 ): Promise<AdminDeliverySettingsResponse> => {
-    const response =
-        await axiosInstance.patch<AdminDeliverySettingsResponse>(
-            "/admin/delivery-settings",
-            payload,
-        );
+    const response = await axiosInstance.patch<AdminDeliverySettingsResponse>(
+        "/admin/delivery-settings",
+        payload,
+    );
     return response.data;
 };
 
@@ -554,5 +585,14 @@ export const getPublicDeliveryAreasFunc =
         return response.data;
     };
 
-
+/**
+ * Get consolidated dashboard data (Admin)
+ * GET /admin/dashboard
+ */
+export const getAdminDashboardFunc =
+    async (): Promise<AdminDashboardResponse> => {
+        const response =
+            await axiosInstance.get<AdminDashboardResponse>("/admin/dashboard");
+        return response.data;
+    };
 

@@ -22,6 +22,7 @@ import {
     getAdminDeliveryAreaByIdFunc,
     getAdminDeliverySettingsFunc,
     getPublicDeliveryAreasFunc,
+    getAdminDashboardFunc,
 } from "./apiFunc";
 import type {
     GetProductsParams,
@@ -36,6 +37,7 @@ import type {
 export const queryKeys = {
     userInfo: ["userInfo"] as const,
     adminMe: ["admin", "me"] as const,
+    adminDashboard: ["admin", "dashboard"] as const,
     adminCategories: ["admin", "categories"] as const,
     adminCategory: (categoryId: string) =>
         ["admin", "categories", categoryId] as const,
@@ -327,6 +329,13 @@ export const useGetPublicDeliveryAreas = () => {
     });
 };
 
-
-
+/**
+ * Hook to fetch consolidated admin dashboard summary data
+ */
+export const useGetAdminDashboard = () => {
+    return useQuery({
+        queryKey: queryKeys.adminDashboard,
+        queryFn: () => getAdminDashboardFunc(),
+    });
+};
 

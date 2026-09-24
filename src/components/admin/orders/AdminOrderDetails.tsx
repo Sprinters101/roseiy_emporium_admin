@@ -2,10 +2,7 @@ import React from "react";
 import { ArrowLeft, Check, Package, Loader2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 import { cn } from "@/lib/utils";
-import {
-    useGetAdminOrder,
-    useGetAdminOrderProgress,
-} from "@/service/queries";
+import { useGetAdminOrder, useGetAdminOrderProgress } from "@/service/queries";
 import { useUpdateAdminOrderStatus } from "@/service/mutations";
 
 const formatOrderDateTime = (isoString?: string | null) => {
@@ -146,27 +143,22 @@ export const AdminOrderDetails: React.FC = () => {
         },
     ];
 
-    const customerName = order.customer
-        ? `${order.customer.firstName} ${order.customer.lastName}`.trim()
-        : "Customer";
+    const customerName =
+        order?.firstName || order?.lastName
+            ? `${order?.firstName} ${order?.lastName}`.trim()
+            : "";
 
-    const deliveryAddressStr = order.deliveryAddress
-        ? `${order.deliveryAddress.addressLine1}${
-              order.deliveryAddress.addressLine2
-                  ? `, ${order.deliveryAddress.addressLine2}`
-                  : ""
-          }, ${order.deliveryAddress.city}, ${order.deliveryAddress.state}${
-              order.deliveryAddress.postalCode
-                  ? ` - ${order.deliveryAddress.postalCode}`
-                  : ""
-          }, ${order.deliveryAddress.country}`
-        : "No delivery address provided";
+    const deliveryAddressStr = `${order?.addressLine1} || ${
+        order.addressLine2 ? ` ${order?.addressLine2}` : ""
+    }, ${order?.city}, ${order?.state}${
+        order?.postalCode ? ` - ${order?.postalCode}` : ""
+    }, ${order?.country}`;
 
     const subtotalNum = Number(order.subtotal || 0);
     const deliveryFeeNum = Number(order.deliveryFee || 0);
     const totalAmountNum = Number(order.total || 0);
 
-    const isUpdating = updateStatusMutation.isPending;
+    const isUpdating = updateStatusMutation?.isPending;
 
     const handleUpdateStatus = (
         newStatus: "processing" | "shipped" | "delivered" | "cancelled",
@@ -229,7 +221,7 @@ export const AdminOrderDetails: React.FC = () => {
                                         Phone Number
                                     </span>
                                     <span className="text-sm font-bold text-[#171717] block mt-1">
-                                        {order.customer?.phoneNumber || "-"}
+                                        {order?.phoneNumber || "-"}
                                     </span>
                                 </div>
 
@@ -238,7 +230,7 @@ export const AdminOrderDetails: React.FC = () => {
                                         Email Address
                                     </span>
                                     <span className="text-sm font-bold text-[#171717] block mt-1">
-                                        {order.customer?.email || "-"}
+                                        {order?.email || "-"}
                                     </span>
                                 </div>
 
@@ -273,8 +265,12 @@ export const AdminOrderDetails: React.FC = () => {
                                             <th className="py-3.5 px-6">
                                                 Product Name
                                             </th>
-                                            <th className="py-3.5 px-6">Brand</th>
-                                            <th className="py-3.5 px-6">Price</th>
+                                            <th className="py-3.5 px-6">
+                                                Brand
+                                            </th>
+                                            <th className="py-3.5 px-6">
+                                                Price
+                                            </th>
                                             <th className="py-3.5 px-6">
                                                 Quantity
                                             </th>
@@ -324,7 +320,9 @@ export const AdminOrderDetails: React.FC = () => {
                                                                 </div>
                                                             )}
                                                             <span className="text-xs sm:text-sm font-semibold text-[#171717]">
-                                                                {item.productName}
+                                                                {
+                                                                    item.productName
+                                                                }
                                                             </span>
                                                         </div>
                                                     </td>
