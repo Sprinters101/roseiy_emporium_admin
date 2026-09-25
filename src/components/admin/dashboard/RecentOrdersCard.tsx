@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router";
 import { PackageIllustration } from "./EmptyStateIllustrations";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export interface AdminOrderSummary {
     id: string;
@@ -23,11 +24,13 @@ export interface AdminOrderSummary {
 
 interface RecentOrdersCardProps {
     orders?: AdminOrderSummary[];
+    isLoading?: boolean;
     onViewAll?: () => void;
 }
 
 export const RecentOrdersCard: React.FC<RecentOrdersCardProps> = ({
     orders = [],
+    isLoading = false,
     onViewAll,
 }) => {
     const renderStatus = (status: string) => {
@@ -70,7 +73,7 @@ export const RecentOrdersCard: React.FC<RecentOrdersCardProps> = ({
     };
 
     return (
-        <div className="bg-white border border-[#eaeaea] rounded-lg  shadow-xs flex flex-col min-h-95 mt-8">
+        <div className="bg-white border border-[#eaeaea] rounded-lg  shadow-xs flex flex-col min-h-95 mt-8 ">
             {/* Header */}
             <div className="flex items-center justify-between p-5">
                 <h2 className="text-lg sm:text-xl font-bold font-hanken text-[#171717]">
@@ -86,7 +89,24 @@ export const RecentOrdersCard: React.FC<RecentOrdersCardProps> = ({
             </div>
 
             {/* Body */}
-            {orders.length === 0 ? (
+            {isLoading ? (
+                <div className="flex-1 overflow-x-hidden p-4 space-y-3">
+                    {[...Array(5)].map((_, i) => (
+                        <div
+                            key={i}
+                            className="flex items-center justify-between py-3 px-2 border-b border-[#f5f5f5]"
+                        >
+                            <Skeleton className="h-4 w-8 bg-gray-100" />
+                            <Skeleton className="h-4 w-28 bg-gray-100" />
+                            <Skeleton className="h-4 w-32 bg-gray-100" />
+                            <Skeleton className="h-4 w-20 bg-gray-100" />
+                            <Skeleton className="h-4 w-16 bg-gray-100" />
+                            <Skeleton className="h-4 w-24 bg-gray-100" />
+                            <Skeleton className="h-4 w-12 bg-gray-100" />
+                        </div>
+                    ))}
+                </div>
+            ) : orders.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center py-12 text-center">
                     <PackageIllustration className="size-36 mb-3" />
                     <p className="text-sm font-medium text-[#737373]">
@@ -94,7 +114,7 @@ export const RecentOrdersCard: React.FC<RecentOrdersCardProps> = ({
                     </p>
                 </div>
             ) : (
-                <div className="flex-1 overflow-x-auto">
+                <div className="flex-1 overflow-hidden">
                     <table className="w-full text-left border-collapse text-sm">
                         <thead>
                             <tr className="bg-[#FAF7F2] text-xs font-semibold text-[#171717]">

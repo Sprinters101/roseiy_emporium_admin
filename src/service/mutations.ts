@@ -19,6 +19,10 @@ import {
     updateAdminDeliveryAreaFunc,
     deleteAdminDeliveryAreaFunc,
     updateAdminDeliverySettingsFunc,
+    updateBusinessSettingsFunc,
+    createAdminUserFunc,
+    updateAdminUserFunc,
+    resetAdminPasswordFunc,
 } from "./apiFunc";
 import { queryKeys } from "./queries";
 import type {
@@ -35,6 +39,10 @@ import type {
     CreateDeliveryAreaPayload,
     UpdateDeliveryAreaPayload,
     UpdateDeliverySettingPayload,
+    UpdateBusinessSettingsPayload,
+    CreateAdminPayload,
+    UpdateAdminPayload,
+    ResetAdminPasswordPayload,
 } from "./types";
 
 // ============================================================================
@@ -595,4 +603,139 @@ export const useUpdateAdminDeliverySettings = () => {
     });
 };
 
+// ============================================================================
+// 10. Business Settings Mutations (Admin)
+// ============================================================================
 
+/**
+ * Hook to update business settings
+ * PATCH /admin/settings/business
+ */
+export const useUpdateBusinessSettings = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: UpdateBusinessSettingsPayload) =>
+            updateBusinessSettingsFunc(payload),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.businessSettings,
+            });
+            toast.success(
+                data?.message || "Business settings updated successfully",
+            );
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to update business settings",
+            );
+        },
+    });
+};
+
+// ============================================================================
+// 11. Admin User Management Mutations (Super Admin)
+// ============================================================================
+
+/**
+ * Hook to create a new admin user
+ * POST /admin/users
+ */
+export const useCreateAdminUser = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: CreateAdminPayload) =>
+            createAdminUserFunc(payload),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({
+                queryKey: ["admin", "users"],
+            });
+            toast.success(
+                data?.message || "Admin user created successfully",
+            );
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to create admin user",
+            );
+        },
+    });
+};
+
+/**
+ * Hook to update an admin user
+ * PATCH /admin/users/:adminId
+ */
+export const useUpdateAdminUser = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({
+            adminId,
+            payload,
+        }: {
+            adminId: string;
+            payload: UpdateAdminPayload;
+        }) => updateAdminUserFunc(adminId, payload),
+        onSuccess: (data, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: ["admin", "users"],
+            });
+            if (variables.adminId) {
+                queryClient.invalidateQueries({
+                    queryKey: queryKeys.adminUser(variables.adminId),
+                });
+            }
+            toast.success(
+                data?.message || "Admin user updated successfully",
+            );
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to update admin user",
+            );
+        },
+    });
+};
+
+/**
+ * Hook to reset an admin user's password
+ * PATCH /admin/users/:adminId/password
+ */
+export const useResetAdminPassword = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({
+            adminId,
+            payload,
+        }: {
+            adminId: string;
+            payload: ResetAdminPasswordPayload;
+        }) => resetAdminPasswordFunc(adminId, payload),
+        onSuccess: (data, variables) => {
+            if (variables.adminId) {
+                queryClient.invalidateQueries({
+                    queryKey: queryKeys.adminUser(variables.adminId),
+                });
+            }
+            toast.success(
+                data?.message || "Admin password reset successfully",
+            );
+        },
+        onError: (err: any) => {
+            toast.error(
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Failed to reset admin password",
+            );
+        },
+    });
+};

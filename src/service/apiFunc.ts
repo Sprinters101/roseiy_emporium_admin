@@ -46,6 +46,14 @@ import type {
     GetPaymentsParams,
     AdminPaymentListResponse,
     AdminPaymentDetailResponse,
+    BusinessSettingsResponse,
+    UpdateBusinessSettingsPayload,
+    GetAdminUsersParams,
+    CreateAdminPayload,
+    UpdateAdminPayload,
+    ResetAdminPasswordPayload,
+    AdminListResponse,
+    AdminDetailResponse,
 } from "./types";
 
 // ============================================================================
@@ -640,5 +648,118 @@ export const getAdminPaymentDetailFunc = async (
     );
     return response.data;
 };
+
+// ============================================================================
+// 11. Business Settings Endpoints (Admin)
+// ============================================================================
+
+/**
+ * Get Business Settings
+ * GET /admin/settings/business
+ */
+export const getBusinessSettingsFunc =
+    async (): Promise<BusinessSettingsResponse> => {
+        const response = await axiosInstance.get<BusinessSettingsResponse>(
+            "/admin/settings/business",
+        );
+        return response.data;
+    };
+
+/**
+ * Update Business Settings
+ * PATCH /admin/settings/business
+ */
+export const updateBusinessSettingsFunc = async (
+    payload: UpdateBusinessSettingsPayload,
+): Promise<BusinessSettingsResponse> => {
+    const response = await axiosInstance.patch<BusinessSettingsResponse>(
+        "/admin/settings/business",
+        payload,
+    );
+    return response.data;
+};
+
+// ============================================================================
+// 12. Admin Users Management Endpoints (Super Admin)
+// ============================================================================
+
+/**
+ * List Admin Users
+ * GET /admin/users
+ */
+export const getAdminUsersFunc = async (
+    params?: GetAdminUsersParams,
+): Promise<AdminListResponse> => {
+    const cleanParams: Record<string, any> = {};
+    if (params) {
+        if (params.page !== undefined) cleanParams.page = params.page;
+        if (params.limit !== undefined) cleanParams.limit = params.limit;
+        if (params.search?.trim()) cleanParams.search = params.search.trim();
+        if (params.role?.trim()) cleanParams.role = params.role.trim();
+        if (params.status?.trim()) cleanParams.status = params.status.trim();
+    }
+    const response = await axiosInstance.get<AdminListResponse>("/admin/users", {
+        params: cleanParams,
+    });
+    return response.data;
+};
+
+/**
+ * Create Admin User
+ * POST /admin/users
+ */
+export const createAdminUserFunc = async (
+    payload: CreateAdminPayload,
+): Promise<AdminDetailResponse> => {
+    const response = await axiosInstance.post<AdminDetailResponse>(
+        "/admin/users",
+        payload,
+    );
+    return response.data;
+};
+
+/**
+ * Get Single Admin User by ID
+ * GET /admin/users/:adminId
+ */
+export const getAdminUserByIdFunc = async (
+    adminId: string,
+): Promise<AdminDetailResponse> => {
+    const response = await axiosInstance.get<AdminDetailResponse>(
+        `/admin/users/${adminId}`,
+    );
+    return response.data;
+};
+
+/**
+ * Update Admin User
+ * PATCH /admin/users/:adminId
+ */
+export const updateAdminUserFunc = async (
+    adminId: string,
+    payload: UpdateAdminPayload,
+): Promise<AdminDetailResponse> => {
+    const response = await axiosInstance.patch<AdminDetailResponse>(
+        `/admin/users/${adminId}`,
+        payload,
+    );
+    return response.data;
+};
+
+/**
+ * Reset Admin Password
+ * PATCH /admin/users/:adminId/password
+ */
+export const resetAdminPasswordFunc = async (
+    adminId: string,
+    payload: ResetAdminPasswordPayload,
+): Promise<ApiResponse<null>> => {
+    const response = await axiosInstance.patch<ApiResponse<null>>(
+        `/admin/users/${adminId}/password`,
+        payload,
+    );
+    return response.data;
+};
+
 
 

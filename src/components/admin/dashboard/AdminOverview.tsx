@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { AdminMetricsStrip } from "./AdminMetricsStrip";
-import { BestSellersCard } from "./BestSellersCard";
-import { TopCustomersCard } from "./TopCustomersCard";
+import { BestSellersCard, type BestSellerItem } from "./BestSellersCard";
+import { TopCustomersCard, type CustomerItem } from "./TopCustomersCard";
 import { RecentOrdersCard, type AdminOrderSummary } from "./RecentOrdersCard";
 import { useAuth } from "@/context/AuthContext";
 import { formatLiveDateTime, getGreeting } from "@/lib/utils";
@@ -25,24 +25,65 @@ export const AdminOverview: React.FC = () => {
 
     const adminFirstName = user?.firstName || "Roseiy";
 
-    // Extract live metrics from dashboard endpoint (0 defaults, no dummy data)
-    const totalRevenue = dashboard?.salesSummary?.totalSales
-        ? parseFloat(dashboard.salesSummary.totalSales)
+    // Extract live metrics from dashboard endpoint
+    const totalRevenue = dashboard?.kpis?.totalRevenue
+        ? parseFloat(dashboard.kpis.totalRevenue)
+        : dashboard?.salesSummary?.totalSales
+          ? parseFloat(dashboard.salesSummary.totalSales)
+          : 0;
+
+    const todayRevenue = dashboard?.kpis?.todayRevenue
+        ? parseFloat(dashboard.kpis.todayRevenue)
         : 0;
 
-    // Today's revenue is not provided by the backend endpoint yet
-    const todayRevenue = 0;
+    const totalOrders =
+        dashboard?.kpis?.totalOrders ?? dashboard?.ordersSummary?.total ?? 0;
 
-    const totalOrders = dashboard?.ordersSummary?.total ?? 0;
+    const totalProducts =
+        dashboard?.kpis?.totalProducts ??
+        dashboard?.inventorySummary?.totalProducts ??
+        0;
 
-    const totalProducts = dashboard?.inventorySummary?.totalProducts ?? 0;
+    // Map live bestSellers
+    const mappedBestSellers: BestSellerItem[] =
+        dashboard?.bestSellers && Array.isArray(dashboard.bestSellers)
+            ? dashboard.bestSellers.map((item) => ({
+                  id: item.productId,
+                  name: item.productName,
+                  image: item.imageUrl,
+                  totalSold: item.totalUnitsSold,
+                  revenue: parseFloat(item.totalRevenue) || 0,
+                  slug: item.slug,
+              }))
+            : [];
 
-    // Map live recentOrders from dashboard endpoint; empty array if none available
+    // Map live topCustomers
+    const mappedTopCustomers: CustomerItem[] =
+        dashboard?.topCustomers && Array.isArray(dashboard.topCustomers)
+            ? dashboard.topCustomers.map((cust) => ({
+                  id: cust.customerId,
+                  name:
+                      cust.fullName ||
+                      `${cust.firstName || ""} ${cust.lastName || ""}`.trim() ||
+                      cust.email ||
+                      "Customer",
+                  email: cust.email,
+                  totalOrders: cust.totalOrders,
+                  totalSpend: parseFloat(cust.totalSpend) || 0,
+              }))
+            : [];
+
+    // Map live recentOrders from dashboard endpoint
     const mappedRecentOrders: AdminOrderSummary[] =
         dashboard?.recentOrders && Array.isArray(dashboard.recentOrders)
             ? dashboard.recentOrders.map((order: any, idx: number) => {
                   let customerName = "Customer";
-                  if (order.customer) {
+                  if (order.firstName || order.lastName) {
+                      customerName =
+                          `${order.firstName || ""} ${order.lastName || ""}`.trim() ||
+                          order.email ||
+                          "Customer";
+                  } else if (order.customer) {
                       const first = order.customer.firstName || "";
                       const last = order.customer.lastName || "";
                       customerName =
@@ -51,6 +92,8 @@ export const AdminOverview: React.FC = () => {
                           "Customer";
                   } else if (order.customerName) {
                       customerName = order.customerName;
+                  } else if (order.email) {
+                      customerName = order.email;
                   }
 
                   let createdAt = order.createdAt || "";
@@ -76,7 +119,9 @@ export const AdminOverview: React.FC = () => {
                       orderNumber: order.orderNumber || "",
                       customerName,
                       customerEmail:
-                          order.customer?.email || order.customerEmail,
+                          order.email ||
+                          order.customer?.email ||
+                          order.customerEmail,
                       totalAmount: Number.isNaN(totalAmount) ? 0 : totalAmount,
                       status: order.status || "pending",
                       createdAt,
@@ -89,7 +134,7 @@ export const AdminOverview: React.FC = () => {
             {/* Top Greeting & Date Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-md sm:text-lg lg:text-[1.5625rem] font-bold font-playfair text-[#171717]  flex items-center gap-2">
+                    <h1 className="text-md sm:text-lg lg:text-[1.5625rem] font-bold font-playfair text-[#171717] flex items-center gap-2">
                         {getGreeting(currentTime)}, {adminFirstName}{" "}
                         <span role="img" aria-label="wave">
                             👏
@@ -100,7 +145,7 @@ export const AdminOverview: React.FC = () => {
                     </p>
                 </div>
 
-                <div className="text-xs sm:text-sm font-medium text-black-200  self-start sm:self-auto">
+                <div className="text-xs sm:text-sm font-medium text-black-200 self-start sm:self-auto">
                     {formatLiveDateTime(currentTime)}
                 </div>
             </div>
@@ -114,14 +159,23 @@ export const AdminOverview: React.FC = () => {
                 isLoading={isDashboardLoading}
             />
 
-            {/* 2-Column Row: Best Sellers & Top Customers (shows empty state when no data) */}
+            {/* 2-Column Row: Best Sellers & Top Customers */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
-                <BestSellersCard items={[]} />
-                <TopCustomersCard customers={[]} />
+                <BestSellersCard
+                    items={mappedBestSellers}
+                    isLoading={isDashboardLoading}
+                />
+                <TopCustomersCard
+                    customers={mappedTopCustomers}
+                    isLoading={isDashboardLoading}
+                />
             </div>
 
-            {/* Full-Width Row: Recent Orders (shows empty state when no data) */}
-            <RecentOrdersCard orders={mappedRecentOrders} />
+            {/* Full-Width Row: Recent Orders */}
+            <RecentOrdersCard
+                orders={mappedRecentOrders}
+                isLoading={isDashboardLoading}
+            />
         </div>
     );
 };

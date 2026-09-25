@@ -127,7 +127,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const updateUser = (userData: Partial<UserProfile>) => {
         setUser((prev) => {
-            const updated = prev ? { ...prev, ...userData } : (userData as UserProfile);
+            const updated = (
+                prev ? { ...prev, ...userData } : userData
+            ) as UserProfile;
             Cookies.set(USER_KEY, JSON.stringify(updated), {
                 expires: 7,
                 path: "/",

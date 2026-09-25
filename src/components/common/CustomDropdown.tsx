@@ -18,6 +18,7 @@ interface CustomDropdownProps {
     onChange: (value: string) => void;
     placeholder?: string;
     variant?: "dark" | "light";
+    disabled?: boolean;
     className?: string;
     triggerClassName?: string;
     contentClassName?: string;
@@ -29,6 +30,7 @@ export const CustomDropdown = ({
     onChange,
     placeholder = "Select option",
     variant = "dark",
+    disabled = false,
     className,
     triggerClassName,
     contentClassName,
@@ -45,8 +47,12 @@ export const CustomDropdown = ({
     return (
         <DropdownMenu>
             <DropdownMenuTrigger
+                disabled={disabled}
                 className={cn(
-                    "group relative flex w-full items-center justify-between gap-2 rounded-lg px-4 py-2.5 text-xs sm:text-sm font-hanken outline-none cursor-pointer transition-colors",
+                    "group relative flex w-full items-center justify-between gap-2 rounded-lg px-4 py-2.5 text-xs sm:text-sm font-hanken outline-none transition-colors",
+                    disabled
+                        ? "opacity-60 cursor-not-allowed pointer-events-none"
+                        : "cursor-pointer",
                     isLight
                         ? "border border-[#E5E5E5] bg-white text-[#171717] hover:border-[#D4AF37] focus:border-[#D4AF37] data-[state=open]:border-[#D4AF37]"
                         : "border border-neutral-800 bg-[#111111] text-white hover:border-neutral-700 focus:border-gold-500/50 data-[state=open]:border-gold-500/50",

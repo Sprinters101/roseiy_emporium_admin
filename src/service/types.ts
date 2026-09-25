@@ -11,19 +11,23 @@ export interface ApiResponse<T = any> {
 
 export type AdminRole =
     | "super_admin"
+    | "administrator"
+    | "admin"
     | "store_manager"
     | "order_manager"
-    | "product_manager"
-    | string;
+    | "product_manager";
 
 export interface AdminUser {
     adminId: string;
     firstName: string;
     lastName: string;
+    fullName?: string;
     email: string;
+    phoneNumber?: string | null;
     role: AdminRole;
     status: "active" | "inactive" | string;
-    lastLoginAt?: string;
+    lastLoginAt?: string | null;
+    passwordChangedAt?: string | null;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -42,9 +46,11 @@ export type LoginResponse = ApiResponse<LoginResponseData>;
 export type AdminMeResponse = ApiResponse<{ admin: AdminUser }>;
 
 export interface UpdateAdminProfilePayload {
+    fullName?: string;
     firstName?: string;
     lastName?: string;
     email?: string;
+    phoneNumber?: string;
 }
 
 export type UpdateAdminProfileResponse = ApiResponse<{ admin: AdminUser }>;
@@ -56,6 +62,75 @@ export interface ChangeAdminPasswordPayload {
 }
 
 export type ChangeAdminPasswordResponse = ApiResponse<null>;
+
+// Business Settings Types
+export interface BusinessSettings {
+    businessSettingId: string;
+    businessName: string;
+    phoneNumber: string;
+    email: string;
+    storeAddress: string;
+    updatedAt?: string;
+}
+
+export interface UpdateBusinessSettingsPayload {
+    businessName?: string;
+    phoneNumber?: string;
+    email?: string;
+    storeAddress?: string;
+}
+
+export type BusinessSettingsResponse = ApiResponse<{
+    settings: BusinessSettings;
+}>;
+
+// Admin Management Types
+export interface GetAdminUsersParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: string;
+    status?: "active" | "inactive" | string;
+}
+
+export interface CreateAdminPayload {
+    fullName?: string;
+    firstName?: string;
+    lastName?: string;
+    email: string;
+    password?: string;
+    phoneNumber?: string;
+    role: AdminRole;
+    status?: "active" | "inactive" | string;
+}
+
+export interface UpdateAdminPayload {
+    fullName?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phoneNumber?: string;
+    role?: AdminRole;
+    status?: "active" | "inactive" | string;
+}
+
+export interface ResetAdminPasswordPayload {
+    password: string;
+}
+
+export type AdminListResponse = ApiResponse<{
+    admins: AdminUser[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+}>;
+
+export type AdminDetailResponse = ApiResponse<{
+    admin: AdminUser;
+}>;
 
 // ----------------------------------------------------------------------
 // 2. Categories Types
@@ -519,6 +594,33 @@ export type PublicDeliveryAreasResponse = ApiResponse<{
 // 9. Admin Dashboard Types
 // ----------------------------------------------------------------------
 
+export interface DashboardKpis {
+    totalRevenue: string;
+    todayRevenue: string;
+    totalOrders: number;
+    totalProducts: number;
+    currency: string;
+}
+
+export interface DashboardBestSeller {
+    productId: string;
+    productName: string;
+    totalUnitsSold: number;
+    totalRevenue: string;
+    slug: string;
+    imageUrl?: string | null;
+}
+
+export interface DashboardTopCustomer {
+    customerId: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+    totalSpend: string;
+    totalOrders: number;
+}
+
 export interface DashboardSalesSummary {
     totalSales: string;
     currency: string;
@@ -547,13 +649,61 @@ export interface DashboardInventorySummary {
     lowStockThreshold: number;
 }
 
+export interface DashboardRecentOrder {
+    orderId: string;
+    orderNumber: string;
+    customerId: string;
+    paymentReference?: string | null;
+    deliveryAreaId?: string | null;
+    deliveryAreaName?: string | null;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber?: string | null;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+    currency?: string;
+    subtotal?: string | number;
+    deliveryFee?: string | number;
+    total: string | number;
+    status: string;
+    paidAt?: string | null;
+    createdAt: string;
+    updatedAt?: string | null;
+}
+
+export interface DashboardLowStockProduct {
+    sellingUnitId: string;
+    productId: string;
+    name: string;
+    sku: string;
+    price: string;
+    stock: number;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+    product: {
+        productId: string;
+        name: string;
+        slug: string;
+        status: string;
+    };
+}
+
 export interface DashboardData {
+    kpis?: DashboardKpis;
+    bestSellers?: DashboardBestSeller[];
+    topCustomers?: DashboardTopCustomer[];
     salesSummary: DashboardSalesSummary;
     ordersSummary: DashboardOrdersSummary;
     customerSummary: DashboardCustomerSummary;
     inventorySummary: DashboardInventorySummary;
-    recentOrders: AdminOrderDetail[];
-    lowStockProducts: any[];
+    recentOrders: DashboardRecentOrder[] | AdminOrderDetail[];
+    lowStockProducts?: DashboardLowStockProduct[] | any[];
 }
 
 export type AdminDashboardResponse = ApiResponse<{

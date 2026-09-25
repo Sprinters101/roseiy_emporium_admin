@@ -25,6 +25,9 @@ import {
     getAdminDashboardFunc,
     getAdminPaymentsFunc,
     getAdminPaymentDetailFunc,
+    getBusinessSettingsFunc,
+    getAdminUsersFunc,
+    getAdminUserByIdFunc,
 } from "./apiFunc";
 import type {
     GetProductsParams,
@@ -32,6 +35,7 @@ import type {
     GetOrdersParams,
     GetDeliveryAreasParams,
     GetPaymentsParams,
+    GetAdminUsersParams,
 } from "./types";
 
 // ============================================================================
@@ -75,6 +79,10 @@ export const queryKeys = {
         ["admin", "payments", params] as const,
     adminPayment: (paymentTransactionId: string) =>
         ["admin", "payments", paymentTransactionId] as const,
+    businessSettings: ["admin", "settings", "business"] as const,
+    adminUsers: (params?: GetAdminUsersParams) =>
+        ["admin", "users", params] as const,
+    adminUser: (adminId: string) => ["admin", "users", adminId] as const,
 };
 
 // ============================================================================
@@ -370,5 +378,49 @@ export const useGetAdminPaymentDetail = (paymentTransactionId?: string) => {
         enabled: Boolean(paymentTransactionId),
     });
 };
+
+// ============================================================================
+// 11. Business Settings Queries (Admin)
+// ============================================================================
+
+/**
+ * Hook to fetch business settings (Admin)
+ */
+export const useGetBusinessSettings = () => {
+    return useQuery({
+        queryKey: queryKeys.businessSettings,
+        queryFn: () => getBusinessSettingsFunc(),
+    });
+};
+
+// ============================================================================
+// 12. Admin Users Management Queries (Super Admin)
+// ============================================================================
+
+/**
+ * Hook to fetch paginated admin users
+ */
+export const useGetAdminUsers = (
+    params?: GetAdminUsersParams,
+    options?: { enabled?: boolean },
+) => {
+    return useQuery({
+        queryKey: queryKeys.adminUsers(params),
+        queryFn: () => getAdminUsersFunc(params),
+        ...options,
+    });
+};
+
+/**
+ * Hook to fetch single admin user by ID
+ */
+export const useGetAdminUser = (adminId?: string) => {
+    return useQuery({
+        queryKey: queryKeys.adminUser(adminId || ""),
+        queryFn: () => getAdminUserByIdFunc(adminId!),
+        enabled: Boolean(adminId),
+    });
+};
+
 
 
