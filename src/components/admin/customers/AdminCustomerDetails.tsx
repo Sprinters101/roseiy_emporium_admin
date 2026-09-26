@@ -414,13 +414,17 @@ export const AdminCustomerDetails: React.FC = () => {
                                         ).toLowerCase();
                                         const isDelivered =
                                             statusLower === "delivered";
-                                        const isProcessing =
-                                            statusLower === "processing" ||
+                                        const isInTransit =
+                                            statusLower === "shipped" ||
                                             statusLower === "in_transit" ||
-                                            statusLower === "shipped";
+                                            statusLower === "intransit";
                                         const isCancelled =
                                             statusLower === "cancelled" ||
                                             statusLower === "failed";
+                                        const isConfirmed =
+                                            !isDelivered &&
+                                            !isInTransit &&
+                                            !isCancelled;
 
                                         const firstItem = order.items?.[0];
                                         const remainingItemsCount =
@@ -478,38 +482,37 @@ export const AdminCustomerDetails: React.FC = () => {
                                                 <td className="py-3.5 px-4">
                                                     <span
                                                         className={cn(
-                                                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold capitalize",
+                                                            "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold",
                                                             isDelivered &&
                                                                 "bg-[#EAF7EE] text-[#1E7E34] border border-[#C3E6CB]",
-                                                            isProcessing &&
-                                                                "bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]",
+                                                            isInTransit &&
+                                                                "bg-[#FEF9E7] text-[#D4AF37] border border-[#F6E8B9]",
                                                             isCancelled &&
                                                                 "bg-[#FDF0F0] text-[#DC2626] border border-[#FCA5A5]",
-                                                            !isDelivered &&
-                                                                !isProcessing &&
-                                                                !isCancelled &&
-                                                                "bg-[#F3F4F6] text-[#4B5563] border border-[#E5E7EB]",
+                                                            isConfirmed &&
+                                                                "bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]",
                                                         )}
                                                     >
                                                         <span
                                                             className={cn(
                                                                 "size-1.5 rounded-full",
                                                                 isDelivered &&
-                                                                    "bg-[#1E7E34]",
-                                                                isProcessing &&
-                                                                    "bg-[#D97706]",
+                                                                    "bg-[#10B981]",
+                                                                isInTransit &&
+                                                                    "bg-[#D4AF37]",
                                                                 isCancelled &&
-                                                                    "bg-[#DC2626]",
-                                                                !isDelivered &&
-                                                                    !isProcessing &&
-                                                                    !isCancelled &&
-                                                                    "bg-[#4B5563]",
+                                                                    "bg-[#EF4444]",
+                                                                isConfirmed &&
+                                                                    "bg-[#3B82F6]",
                                                             )}
                                                         />
-                                                        {order.status.replace(
-                                                            "_",
-                                                            " ",
-                                                        )}
+                                                        {isDelivered
+                                                            ? "Delivered"
+                                                            : isInTransit
+                                                              ? "In transit"
+                                                              : isCancelled
+                                                                ? "Failed"
+                                                                : "Confirmed"}
                                                     </span>
                                                 </td>
                                                 <td className="py-3.5 px-4 text-right">

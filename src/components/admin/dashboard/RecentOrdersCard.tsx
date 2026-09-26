@@ -34,7 +34,7 @@ export const RecentOrdersCard: React.FC<RecentOrdersCardProps> = ({
     onViewAll,
 }) => {
     const renderStatus = (status: string) => {
-        const s = status.toLowerCase();
+        const s = (status || "").toLowerCase();
         if (s === "delivered") {
             return (
                 <div className="flex items-center gap-1.5 text-sm font-medium text-[#10B981]">
@@ -43,16 +43,11 @@ export const RecentOrdersCard: React.FC<RecentOrdersCardProps> = ({
                 </div>
             );
         }
-        if (
-            s === "ongoing" ||
-            s === "processing" ||
-            s === "shipped" ||
-            s === "pending"
-        ) {
+        if (s === "shipped" || s === "intransit" || s === "in transit") {
             return (
-                <div className="flex items-center gap-1.5 text-sm font-medium text-[#F59E0B]">
-                    <span className="size-1.5 rounded-full bg-[#F59E0B]" />
-                    <span>Ongoing</span>
+                <div className="flex items-center gap-1.5 text-sm font-medium text-[#D4AF37]">
+                    <span className="size-1.5 rounded-full bg-[#D4AF37]" />
+                    <span>In transit</span>
                 </div>
             );
         }
@@ -61,6 +56,19 @@ export const RecentOrdersCard: React.FC<RecentOrdersCardProps> = ({
                 <div className="flex items-center gap-1.5 text-sm font-medium text-[#EF4444]">
                     <span className="size-1.5 rounded-full bg-[#EF4444]" />
                     <span>Failed</span>
+                </div>
+            );
+        }
+        if (
+            s === "processing" ||
+            s === "pending" ||
+            s === "confirmed" ||
+            s === "ongoing"
+        ) {
+            return (
+                <div className="flex items-center gap-1.5 text-sm font-medium text-[#3B82F6]">
+                    <span className="size-1.5 rounded-full bg-[#3B82F6]" />
+                    <span>Confirmed</span>
                 </div>
             );
         }

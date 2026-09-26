@@ -31,8 +31,8 @@ const STATUS_TABS: {
 }[] = [
     { id: "all", label: "All", dotColor: "bg-[#171717]" },
     { id: "processing", label: "Confirmed", dotColor: "bg-[#3B82F6]" },
-    { id: "shipped", label: "In Transit", dotColor: "bg-[#D4AF37]" },
-    { id: "delivered", label: "Completed", dotColor: "bg-[#10B981]" },
+    { id: "shipped", label: "In transit", dotColor: "bg-[#D4AF37]" },
+    { id: "delivered", label: "Delivered", dotColor: "bg-[#10B981]" },
     { id: "cancelled", label: "Failed", dotColor: "bg-[#EF4444]" },
 ];
 
@@ -264,28 +264,28 @@ export const AdminOrders: React.FC = () => {
             return (
                 <div className="flex items-center gap-1.5">
                     <span className="size-2 rounded-full bg-[#10B981]" />
-                    <span className="text-xs font-semibold text-[#10B981] capitalize">
+                    <span className="text-xs font-semibold text-[#10B981]">
                         Delivered
                     </span>
                 </div>
             );
         }
-        if (s === "cancelled") {
+        if (s === "cancelled" || s === "failed") {
             return (
                 <div className="flex items-center gap-1.5">
                     <span className="size-2 rounded-full bg-[#EF4444]" />
-                    <span className="text-xs font-semibold text-[#EF4444] capitalize">
-                        Cancelled
+                    <span className="text-xs font-semibold text-[#EF4444]">
+                        Failed
                     </span>
                 </div>
             );
         }
-        if (s === "shipped") {
+        if (s === "shipped" || s === "intransit" || s === "in transit") {
             return (
                 <div className="flex items-center gap-1.5">
                     <span className="size-2 rounded-full bg-[#D4AF37]" />
-                    <span className="text-xs font-semibold text-[#D4AF37] capitalize">
-                        Shipped
+                    <span className="text-xs font-semibold text-[#D4AF37]">
+                        In transit
                     </span>
                 </div>
             );
@@ -293,8 +293,8 @@ export const AdminOrders: React.FC = () => {
         return (
             <div className="flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-[#3B82F6]" />
-                <span className="text-xs font-semibold text-[#3B82F6] capitalize">
-                    {s === "processing" ? "Processing" : s || "Processing"}
+                <span className="text-xs font-semibold text-[#3B82F6]">
+                    Confirmed
                 </span>
             </div>
         );

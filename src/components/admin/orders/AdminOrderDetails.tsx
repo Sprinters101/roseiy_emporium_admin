@@ -111,7 +111,7 @@ export const AdminOrderDetails: React.FC = () => {
 
     const steps = [
         {
-            title: "Order Placed",
+            title: "Confirmed",
             timestamp: formatOrderDateTime(
                 stepProcessing?.occurredAt || order.createdAt,
             ),
@@ -403,7 +403,9 @@ export const AdminOrderDetails: React.FC = () => {
                                             ? "bg-[#10B981]"
                                             : isCancelled
                                               ? "bg-[#EF4444]"
-                                              : "bg-[#D4AF37]",
+                                              : isInTransit
+                                                ? "bg-[#D4AF37]"
+                                                : "bg-[#3B82F6]",
                                     )}
                                 />
                                 <span
@@ -412,7 +414,9 @@ export const AdminOrderDetails: React.FC = () => {
                                             ? "text-[#10B981]"
                                             : isCancelled
                                               ? "text-[#EF4444]"
-                                              : "text-[#D4AF37]",
+                                              : isInTransit
+                                                ? "text-[#D4AF37]"
+                                                : "text-[#3B82F6]",
                                     )}
                                 >
                                     {isDelivered
@@ -421,7 +425,7 @@ export const AdminOrderDetails: React.FC = () => {
                                           ? "Failed"
                                           : isInTransit
                                             ? "In Transit"
-                                            : "Ongoing"}
+                                            : "Confirmed"}
                                 </span>
                             </div>
                         </div>
