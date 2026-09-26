@@ -7,6 +7,7 @@ import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { CustomInput } from "@/components/common/CustomInput";
 import { CustomPriceInput } from "@/components/common/CustomPriceInput";
 import { toast } from "@/components/ui/sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     useGetAdminBrands,
     useGetAdminCategories,
@@ -76,7 +77,8 @@ export const AdminEditProduct: React.FC = () => {
         return BRAND_OPTIONS;
     }, [brandsResponse]);
 
-    const { data: productDetailResponse } = useGetAdminProduct(id || "");
+    const { data: productDetailResponse, isLoading: isProductLoading } =
+        useGetAdminProduct(id || "");
     const { mutate: updateProduct, isPending: isUpdating } =
         useUpdateAdminProduct();
 
@@ -101,12 +103,14 @@ export const AdminEditProduct: React.FC = () => {
 
     // Load initial product data
     useEffect(() => {
+        if (isProductLoading) return;
+
         const apiItem = productDetailResponse?.data?.product;
         if (apiItem) {
             setName(apiItem.name || "");
-            setSize(apiItem.description?.replace("Volume: ", "") || "750ml");
-            setCategory(apiItem.category?.name || "Whiskey");
-            setBrand(apiItem.brand?.name || "Glenfiddich");
+            setSize(apiItem.description?.replace("", "") || "");
+            setCategory(apiItem.category?.name || "");
+            setBrand(apiItem.brand?.name || "");
 
             const pieceUnit =
                 apiItem.sellingUnits?.find(
@@ -125,8 +129,25 @@ export const AdminEditProduct: React.FC = () => {
                     u.name?.toLowerCase() === "cartons",
             );
 
-            setPriceInPieces(pieceUnit?.price ? String(pieceUnit.price) : "");
-            setPriceInCases(caseUnit?.price ? String(caseUnit.price) : "");
+            const cleanInitialPrice = (
+                p: string | number | undefined,
+            ): string => {
+                if (p === undefined || p === null || p === "") return "";
+                const clean = String(p).replace(/[^0-9.]/g, "");
+                if (!clean) return "";
+                return clean.includes(".") ? clean.split(".")[0] : clean;
+            };
+
+            setPriceInPieces(
+                pieceUnit?.price !== undefined
+                    ? cleanInitialPrice(pieceUnit.price)
+                    : "",
+            );
+            setPriceInCases(
+                caseUnit?.price !== undefined
+                    ? cleanInitialPrice(caseUnit.price)
+                    : "",
+            );
             setPiecesLeft(
                 pieceUnit?.stock !== undefined ? String(pieceUnit.stock) : "",
             );
@@ -146,20 +167,29 @@ export const AdminEditProduct: React.FC = () => {
             return;
         }
 
+        const cleanInitialPrice = (p: string | number | undefined): string => {
+            if (p === undefined || p === null || p === "") return "";
+            const clean = String(p).replace(/[^0-9.]/g, "");
+            if (!clean) return "";
+            return clean.includes(".") ? clean.split(".")[0] : clean;
+        };
+
         const found = products.find((p) => p.id === id);
         if (found) {
             setCurrentProduct(found);
             setName(found.name || "");
             setSize(found.volume || "");
-            setCategory(found.category || "Whiskey");
-            setBrand(found.brand || "Glenfiddich");
-            setPriceInPieces(found.price ? String(found.price) : "");
+            setCategory(found.category || "");
+            setBrand(found.brand || "");
+            setPriceInPieces(
+                found.price !== undefined ? cleanInitialPrice(found.price) : "",
+            );
             setPriceInCases(
-                found.casePrice
-                    ? String(found.casePrice)
-                    : found.priceInCases
-                    ? String(found.priceInCases)
-                    : "",
+                found.casePrice !== undefined
+                    ? cleanInitialPrice(found.casePrice)
+                    : found.priceInCases !== undefined
+                      ? cleanInitialPrice(found.priceInCases)
+                      : "",
             );
             setPiecesLeft(
                 found.piecesLeft !== undefined ? String(found.piecesLeft) : "",
@@ -190,23 +220,23 @@ export const AdminEditProduct: React.FC = () => {
             setImages(initialImgs);
         } else {
             // Default demo fallback if ID not in standard array
-            setName("Glenfiddich Single Scotch");
-            setSize("75cl");
-            setCategory("Whiskey");
-            setBrand("Glenfiddich");
-            setPriceInPieces("75000");
-            setPriceInCases("450000");
-            setPiecesLeft("37");
-            setCasesLeft("0");
+            setName("");
+            setSize("");
+            setCategory("");
+            setBrand("");
+            setPriceInPieces("");
+            setPriceInCases("");
+            setPiecesLeft("");
+            setCasesLeft("");
             setImages([
                 {
                     id: "demo-img",
-                    url: "https://res.cloudinary.com/dzk1a6bjt/image/upload/v1784813212/p_5_ohp3t7.png",
+                    url: "",
                     name: "Image 1.png",
                 },
             ]);
         }
-    }, [id, productDetailResponse]);
+    }, [id, productDetailResponse, isProductLoading]);
 
     const handleBack = () => {
         navigate("/products");
@@ -239,7 +269,11 @@ export const AdminEditProduct: React.FC = () => {
                     setImages((prev) =>
                         prev.map((img) =>
                             img.id === tempId
-                                ? { ...img, url: cloudinaryUrl, isUploading: false }
+                                ? {
+                                      ...img,
+                                      url: cloudinaryUrl,
+                                      isUploading: false,
+                                  }
                                 : img,
                         ),
                     );
@@ -248,7 +282,9 @@ export const AdminEditProduct: React.FC = () => {
                     toast.error(
                         `Failed to upload ${file.name}: ${err?.message || "Cloudinary error"}`,
                     );
-                    setImages((prev) => prev.filter((img) => img.id !== tempId));
+                    setImages((prev) =>
+                        prev.filter((img) => img.id !== tempId),
+                    );
                     URL.revokeObjectURL(localPreview);
                 }
             }
@@ -300,20 +336,29 @@ export const AdminEditProduct: React.FC = () => {
         );
         const brandId = matchedBrand?.brandId || apiBrands[0]?.brandId;
 
-        const updatedPieces = piecesLeft ? Number(piecesLeft.replace(/,/g, "")) : 0;
-        const updatedCases = casesLeft ? Number(casesLeft.replace(/,/g, "")) : 0;
-        const casePriceNum = priceInCases ? Number(priceInCases.replace(/,/g, "")) : 0;
+        const updatedPieces = piecesLeft
+            ? Number(piecesLeft.replace(/,/g, ""))
+            : 0;
+        const updatedCases = casesLeft
+            ? Number(casesLeft.replace(/,/g, ""))
+            : 0;
+        const casePriceNum = priceInCases
+            ? Number(priceInCases.replace(/,/g, ""))
+            : 0;
         const updatedStatus =
-            updatedPieces > 0 || updatedCases > 0 ? "Available" : "Out of Stock";
+            updatedPieces > 0 || updatedCases > 0
+                ? "Available"
+                : "Out of Stock";
 
         const apiItem = productDetailResponse?.data?.product;
-        const existingPieceUnit = apiItem?.sellingUnits?.find(
-            (u: SellingUnit) =>
-                u.name?.toLowerCase() === "piece" ||
-                u.name?.toLowerCase() === "pieces" ||
-                u.name?.toLowerCase() === "bottle" ||
-                u.name?.toLowerCase() === "bottles",
-        ) || apiItem?.sellingUnits?.[0];
+        const existingPieceUnit =
+            apiItem?.sellingUnits?.find(
+                (u: SellingUnit) =>
+                    u.name?.toLowerCase() === "piece" ||
+                    u.name?.toLowerCase() === "pieces" ||
+                    u.name?.toLowerCase() === "bottle" ||
+                    u.name?.toLowerCase() === "bottles",
+            ) || apiItem?.sellingUnits?.[0];
 
         const existingCaseUnit = apiItem?.sellingUnits?.find(
             (u: SellingUnit) =>
@@ -344,7 +389,7 @@ export const AdminEditProduct: React.FC = () => {
         }
 
         const fallbackImage =
-            "https://res.cloudinary.com/dzk1a6bjt/image/upload/v1784813212/p_5_ohp3t7.png";
+            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTEFKwKKIne5qyG8tU25RYExTtpXsXX9OJt1Xi9Fmtdcnf6JQsEMsSX1vQ&s=10";
         const productImages =
             images.length > 0
                 ? images.map((img, idx) => ({
@@ -365,9 +410,9 @@ export const AdminEditProduct: React.FC = () => {
         const updatedProduct: Product = {
             id: id || String(Date.now()),
             name: name.trim(),
-            category: category || "Whiskey",
-            brand: brand || "Roseiy Collection",
-            volume: size || "750ml",
+            category: category || "",
+            brand: brand || "",
+            volume: size || "",
             price: piecesPriceNum,
             casePrice: casePriceNum > 0 ? casePriceNum : undefined,
             priceInCases: casePriceNum > 0 ? casePriceNum : undefined,
@@ -399,7 +444,7 @@ export const AdminEditProduct: React.FC = () => {
                 productId: id,
                 payload: {
                     name: name.trim(),
-                    description: size ? `Volume: ${size}` : undefined,
+                    description: size ? `${size}` : undefined,
                     categoryId,
                     brandId: brandId || undefined,
                     status:
@@ -446,6 +491,164 @@ export const AdminEditProduct: React.FC = () => {
         casesLeft ? `${casesLeft} Cases Left` : "Quantity In Cases",
     ].join(" • ");
 
+    // Loading Skeleton State while fetching product details
+    if (isProductLoading && !productDetailResponse) {
+        return (
+            <div className="space-y-6 animate-fadeIn pb-12">
+                {/* Header with Back Button */}
+                <div>
+                    <button
+                        type="button"
+                        onClick={handleBack}
+                        className="p-1 rounded-md text-[#171717] hover:bg-[#EAEAEA] transition-colors cursor-pointer mb-2 inline-flex items-center"
+                        aria-label="Go back"
+                    >
+                        <ArrowLeft className="size-5" />
+                    </button>
+                    <h1 className="text-2xl sm:text-3xl font-bold font-playfair text-[#171717]">
+                        Edit Product
+                    </h1>
+                    <p className="text-xs sm:text-sm text-[#737373] font-hanken mt-1">
+                        Loading product details...
+                    </p>
+                </div>
+
+                {/* 2-Column Responsive Layout Skeleton */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    {/* Left Column: Form Cards Skeleton */}
+                    <div className="lg:col-span-8 space-y-6">
+                        {/* 1. Basic Information */}
+                        <div className="bg-white border border-[#EAEAEA] rounded-2xl p-6 sm:p-7 shadow-xs">
+                            <div className="flex items-center gap-3">
+                                <span className="size-6 rounded-full bg-[#B8860B]/20 text-[#B8860B] flex items-center justify-center text-xs font-bold shrink-0">
+                                    1
+                                </span>
+                                <Skeleton className="h-5 w-36 bg-gray-200" />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-5">
+                                <div className="space-y-2">
+                                    <Skeleton className="h-3.5 w-24 bg-gray-200" />
+                                    <Skeleton className="h-11 w-full rounded-xl bg-gray-100 border border-[#EAEAEA]" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Skeleton className="h-3.5 w-16 bg-gray-200" />
+                                    <Skeleton className="h-11 w-full rounded-xl bg-gray-100 border border-[#EAEAEA]" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-5">
+                                <div className="space-y-2">
+                                    <Skeleton className="h-3.5 w-20 bg-gray-200" />
+                                    <Skeleton className="h-11 w-full rounded-xl bg-gray-100 border border-[#EAEAEA]" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Skeleton className="h-3.5 w-16 bg-gray-200" />
+                                    <Skeleton className="h-11 w-full rounded-xl bg-gray-100 border border-[#EAEAEA]" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 2. Product Images */}
+                        <div className="bg-white border border-[#EAEAEA] rounded-2xl p-6 sm:p-7 shadow-xs">
+                            <div className="flex items-center gap-3">
+                                <span className="size-6 rounded-full bg-[#B8860B]/20 text-[#B8860B] flex items-center justify-center text-xs font-bold shrink-0">
+                                    2
+                                </span>
+                                <div>
+                                    <Skeleton className="h-5 w-32 bg-gray-200" />
+                                    <Skeleton className="h-3 w-48 bg-gray-100 mt-1.5" />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-4 mt-5">
+                                <div className="border-2 border-dashed border-[#EAEAEA] bg-[#FAF8F5]/60 rounded-2xl p-6 flex flex-col items-center justify-center w-60 h-36">
+                                    <Skeleton className="size-7 rounded-lg bg-gray-200" />
+                                    <Skeleton className="h-3.5 w-24 bg-gray-200 mt-2.5" />
+                                    <Skeleton className="h-2.5 w-36 bg-gray-100 mt-1.5" />
+                                </div>
+                                <div className="flex flex-col items-center">
+                                    <Skeleton className="w-24 h-24 rounded-2xl bg-gray-100 border border-[#EAEAEA]" />
+                                    <Skeleton className="h-2.5 w-16 bg-gray-100 mt-1.5" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3. Pricing */}
+                        <div className="bg-white border border-[#EAEAEA] rounded-2xl p-6 sm:p-7 shadow-xs">
+                            <div className="flex items-center gap-3">
+                                <span className="size-6 rounded-full bg-[#B8860B]/20 text-[#B8860B] flex items-center justify-center text-xs font-bold shrink-0">
+                                    3
+                                </span>
+                                <Skeleton className="h-5 w-20 bg-gray-200" />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-5">
+                                <div className="space-y-2">
+                                    <Skeleton className="h-3.5 w-36 bg-gray-200" />
+                                    <Skeleton className="h-11 w-full rounded-xl bg-gray-100 border border-[#EAEAEA]" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Skeleton className="h-3.5 w-36 bg-gray-200" />
+                                    <Skeleton className="h-11 w-full rounded-xl bg-gray-100 border border-[#EAEAEA]" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 4. Inventory */}
+                        <div className="bg-white border border-[#EAEAEA] rounded-2xl p-6 sm:p-7 shadow-xs">
+                            <div className="flex items-center gap-3">
+                                <span className="size-6 rounded-full bg-[#B8860B]/20 text-[#B8860B] flex items-center justify-center text-xs font-bold shrink-0">
+                                    4
+                                </span>
+                                <Skeleton className="h-5 w-24 bg-gray-200" />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-5">
+                                <div className="space-y-2">
+                                    <Skeleton className="h-3.5 w-32 bg-gray-200" />
+                                    <Skeleton className="h-11 w-full rounded-xl bg-gray-100 border border-[#EAEAEA]" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Skeleton className="h-3.5 w-32 bg-gray-200" />
+                                    <Skeleton className="h-11 w-full rounded-xl bg-gray-100 border border-[#EAEAEA]" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Column: Product Preview Skeleton */}
+                    <div className="lg:col-span-4 sticky top-6 self-start space-y-4">
+                        <div className="bg-white border border-[#EAEAEA] rounded-2xl p-6 shadow-xs">
+                            <Skeleton className="h-5 w-32 bg-gray-200" />
+                            <Skeleton className="h-3 w-56 bg-gray-100 mt-1.5" />
+
+                            {/* Image Preview Box */}
+                            <div className="bg-[#FAF8F5] rounded-2xl flex items-center justify-center p-6 my-5 aspect-square relative overflow-hidden border border-[#EAEAEA]/50">
+                                <Skeleton className="size-36 rounded-2xl bg-gray-200/70" />
+                            </div>
+
+                            {/* Information Preview */}
+                            <div className="space-y-2">
+                                <Skeleton className="h-3 w-20 bg-[#D4AF37]/30" />
+                                <Skeleton className="h-6 w-3/4 bg-gray-200 mt-1" />
+                                <Skeleton className="h-3.5 w-1/2 bg-gray-200 mt-1" />
+                                <Skeleton className="h-7 w-28 bg-[#D4AF37]/30 mt-3" />
+                            </div>
+
+                            {/* Save Changes Button Skeleton */}
+                            <Skeleton className="w-full h-12 rounded-xl bg-[#D4AF37]/40 mt-6" />
+
+                            <div className="flex items-center justify-center gap-1.5 mt-3">
+                                <Skeleton className="h-3 w-48 bg-gray-100" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6 animate-fadeIn pb-12">
             {/* Header with Back Button */}
@@ -462,7 +665,8 @@ export const AdminEditProduct: React.FC = () => {
                     Edit Product
                 </h1>
                 <p className="text-xs sm:text-sm text-[#737373] font-hanken mt-1">
-                    Update the details below to edit this product in your catalogue
+                    Update the details below to edit this product in your
+                    catalogue
                 </p>
             </div>
 
@@ -601,7 +805,7 @@ export const AdminEditProduct: React.FC = () => {
                                             </button>
                                         )}
                                     </div>
-                                    <span className="text-[11px] text-[#737373] mt-1.5 truncate max-w-[120px] text-center">
+                                    <span className="text-[11px] text-[#737373] mt-1.5 truncate max-w-30 text-center">
                                         {img.name}
                                     </span>
                                 </div>
@@ -625,14 +829,18 @@ export const AdminEditProduct: React.FC = () => {
                                 label="Selling Price in Pieces"
                                 placeholder="80,000"
                                 value={priceInPieces}
-                                onChange={(formatted) => setPriceInPieces(formatted)}
+                                onChange={(formatted) =>
+                                    setPriceInPieces(formatted)
+                                }
                             />
 
                             <CustomPriceInput
                                 label="Selling Price in Cases"
                                 placeholder="80,000"
                                 value={priceInCases}
-                                onChange={(formatted) => setPriceInCases(formatted)}
+                                onChange={(formatted) =>
+                                    setPriceInCases(formatted)
+                                }
                             />
                         </div>
                     </div>
@@ -679,7 +887,8 @@ export const AdminEditProduct: React.FC = () => {
                             Product Preview
                         </h3>
                         <p className="text-xs text-[#737373] mt-0.5">
-                            Your product will appear here as you complete the form.
+                            Your product will appear here as you complete the
+                            form.
                         </p>
 
                         {/* Image Preview Box */}
@@ -746,7 +955,9 @@ export const AdminEditProduct: React.FC = () => {
                         {/* Save Changes Button */}
                         <button
                             type="button"
-                            disabled={isSubmitting || isUpdating || isUploadingAny}
+                            disabled={
+                                isSubmitting || isUpdating || isUploadingAny
+                            }
                             onClick={handleSave}
                             className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-3.5 rounded-xl transition-all shadow-xs cursor-pointer text-sm mt-6 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
@@ -768,7 +979,8 @@ export const AdminEditProduct: React.FC = () => {
                         <div className="text-[11px] text-[#737373] flex items-center justify-center gap-1.5 mt-3 text-center">
                             <Info className="size-3.5 text-[#D4AF37] shrink-0" />
                             <span>
-                                Changes will be immediately reflected in your catalogue
+                                Changes will be immediately reflected in your
+                                catalogue
                             </span>
                         </div>
                     </div>

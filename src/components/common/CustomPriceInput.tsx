@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useRef } from "react";
 import { cn } from "@/lib/utils";
 
@@ -25,16 +26,26 @@ export const formatPriceNumber = (
     const clean = String(val).replace(/[^0-9.]/g, "");
     if (!clean) return "";
 
-    if (allowDecimals && clean.includes(".")) {
+    if (clean.includes(".")) {
         const [intPart, ...decParts] = clean.split(".");
-        const decPart = decParts.join("").slice(0, 2);
-        const formattedInt = intPart ? Number(intPart).toLocaleString("en-US") : "0";
-        return `${formattedInt}.${decPart}`;
+        const formattedInt = intPart
+            ? Number(intPart).toLocaleString("en-US")
+            : "0";
+
+        if (allowDecimals) {
+            const decPart = decParts.join("").slice(0, 2);
+            if (clean.endsWith(".") && decPart === "") {
+                return `${formattedInt}.`;
+            }
+            return `${formattedInt}.${decPart}`;
+        }
+
+        // If allowDecimals is false, discard the decimal fraction rather than stripping the dot!
+        // (Replacing the dot with "" turned ".00" into extra integer zeros, e.g. 80,000.00 became 8,000,000)
+        return formattedInt;
     }
 
-    const intVal = clean.replace(/\./g, "");
-    if (!intVal) return "";
-    return Number(intVal).toLocaleString("en-US");
+    return Number(clean).toLocaleString("en-US");
 };
 
 export const CustomPriceInput: React.FC<CustomPriceInputProps> = ({
@@ -66,9 +77,11 @@ export const CustomPriceInput: React.FC<CustomPriceInputProps> = ({
         const prevLen = rawVal.length;
 
         // Clean digits and format
-        const clean = allowDecimals
-            ? rawVal.replace(/[^0-9.]/g, "")
-            : rawVal.replace(/[^0-9]/g, "");
+        let clean = rawVal.replace(/[^0-9.]/g, "");
+        if (!allowDecimals && clean.includes(".")) {
+            // Discard decimal portion when decimals are not allowed
+            clean = clean.split(".")[0];
+        }
 
         const formatted = formatPriceNumber(clean, allowDecimals);
         const rawNumeric = clean ? parseFloat(clean) : 0;
@@ -101,8 +114,8 @@ export const CustomPriceInput: React.FC<CustomPriceInputProps> = ({
                     disabled
                         ? "bg-[#FAFAFA] border-[#E5E5E5] text-[#888888] cursor-not-allowed"
                         : error
-                        ? "border-red-500 ring-1 ring-red-500/20"
-                        : "border-[#E5E5E5] hover:border-[#D5D5D5] focus-within:border-[#D4AF37] focus-within:ring-1 focus-within:ring-[#D4AF37]/20",
+                          ? "border-red-500 ring-1 ring-red-500/20"
+                          : "border-[#E5E5E5] hover:border-[#D5D5D5] focus-within:border-[#D4AF37] focus-within:ring-1 focus-within:ring-[#D4AF37]/20",
                     className,
                 )}
             >

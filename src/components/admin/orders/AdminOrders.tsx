@@ -518,10 +518,15 @@ export const AdminOrders: React.FC = () => {
         return apiOrders.filter((order) => {
             const status = (order.status || "").toLowerCase();
             if (statusTab === "ongoing") {
-                if (progressFilter === "InTransit") return status === "shipped" || status === "intransit";
+                if (progressFilter === "InTransit")
+                    return status === "shipped" || status === "intransit";
                 if (progressFilter === "Order Confirmed")
                     return status === "processing";
-                return status === "processing" || status === "shipped" || status === "intransit";
+                return (
+                    status === "processing" ||
+                    status === "shipped" ||
+                    status === "intransit"
+                );
             }
 
             if (statusTab === "completed") {
@@ -1039,9 +1044,9 @@ export const AdminOrders: React.FC = () => {
                                 </thead>
                                 <tbody className="divide-y divide-[#F0F0F0]">
                                     {sortedOrders.map((order, index) => {
-                                        const customerName = order.customer
-                                            ? `${order.customer.firstName} ${order.customer.lastName}`.trim()
-                                            : "Customer";
+                                        const customerName =
+                                            `${order?.firstName} ${order?.lastName}`.trim();
+
                                         const amountNum = Number(
                                             order.total || 0,
                                         );
