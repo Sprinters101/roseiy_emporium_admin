@@ -175,13 +175,9 @@ export const AdminProducts: React.FC = () => {
         statusTab,
     ]);
 
-    // Reactive query parameters sent to GET /admin/products
-    const queryParams: GetProductsParams = useMemo(() => {
-        const params: GetProductsParams = {
-            page,
-            limit: pageSize,
-            sort: selectedSort,
-        };
+    // Extract base search & filter params shared by primary query and lightweight count queries
+    const filterParams: Partial<GetProductsParams> = useMemo(() => {
+        const params: Partial<GetProductsParams> = {};
         if (debouncedSearch.trim()) {
             params.search = debouncedSearch.trim();
         }
@@ -191,6 +187,17 @@ export const AdminProducts: React.FC = () => {
         if (selectedBrand && selectedBrand !== "all") {
             params.brandId = selectedBrand;
         }
+        return params;
+    }, [debouncedSearch, selectedCategory, selectedBrand]);
+
+    // Reactive query parameters sent to GET /admin/products
+    const queryParams: GetProductsParams = useMemo(() => {
+        const params: GetProductsParams = {
+            page,
+            limit: pageSize,
+            sort: selectedSort,
+            ...filterParams,
+        };
         if (statusTab === "available") {
             params.status = "active";
         } else if (statusTab === "outofstock") {
@@ -200,11 +207,9 @@ export const AdminProducts: React.FC = () => {
     }, [
         page,
         pageSize,
-        debouncedSearch,
-        selectedCategory,
-        selectedBrand,
-        statusTab,
         selectedSort,
+        filterParams,
+        statusTab,
     ]);
 
     // Primary products list query
@@ -217,13 +222,18 @@ export const AdminProducts: React.FC = () => {
         refetch,
     } = useGetAdminProducts(queryParams);
 
-    // Parallel lightweight count queries for status tab badges
-    const { data: globalAllResponse } = useGetAdminProducts({ limit: 1 });
-    const { data: globalAvailableResponse } = useGetAdminProducts({
+    // Parallel lightweight count queries for status tab badges that stay in sync with search & filters
+    const { data: allCountResponse } = useGetAdminProducts({
+        ...filterParams,
+        limit: 1,
+    });
+    const { data: availableCountResponse } = useGetAdminProducts({
+        ...filterParams,
         status: "active",
         limit: 1,
     });
-    const { data: globalOutOfStockResponse } = useGetAdminProducts({
+    const { data: outOfStockCountResponse } = useGetAdminProducts({
+        ...filterParams,
         status: "inactive",
         limit: 1,
     });
@@ -285,22 +295,25 @@ export const AdminProducts: React.FC = () => {
         return [{ label: "All Brands", value: "all" }];
     }, [brandsResponse]);
 
-    // Server-computed total counts for status tabs
+    // Server-computed total counts for status tabs that dynamically update when data changes
     const totalCount =
-        globalAllResponse?.data?.pagination?.total ??
-        (statusTab === "all"
-            ? (productsResponse?.data?.pagination?.total ?? 0)
-            : 0);
+        statusTab === "all"
+            ? (productsResponse?.data?.pagination?.total ??
+               allCountResponse?.data?.pagination?.total ??
+               0)
+            : (allCountResponse?.data?.pagination?.total ?? 0);
     const availableCount =
-        globalAvailableResponse?.data?.pagination?.total ??
-        (statusTab === "available"
-            ? (productsResponse?.data?.pagination?.total ?? 0)
-            : 0);
+        statusTab === "available"
+            ? (productsResponse?.data?.pagination?.total ??
+               availableCountResponse?.data?.pagination?.total ??
+               0)
+            : (availableCountResponse?.data?.pagination?.total ?? 0);
     const outOfStockCount =
-        globalOutOfStockResponse?.data?.pagination?.total ??
-        (statusTab === "outofstock"
-            ? (productsResponse?.data?.pagination?.total ?? 0)
-            : 0);
+        statusTab === "outofstock"
+            ? (productsResponse?.data?.pagination?.total ??
+               outOfStockCountResponse?.data?.pagination?.total ??
+               0)
+            : (outOfStockCountResponse?.data?.pagination?.total ?? 0);
 
     // Selection handlers for current page items
     const allSelected =
@@ -807,16 +820,20 @@ export const AdminProducts: React.FC = () => {
                         )}
                     >
                         <span>All</span>
-                        <span
-                            className={cn(
-                                "px-1.5 py-0.5 rounded-full text-[11px] font-semibold",
-                                statusTab === "all"
-                                    ? "bg-[#FDF2D9] text-[#B8860B]"
-                                    : "bg-[#EEEEEE] text-[#555555]",
-                            )}
-                        >
-                            {totalCount}
-                        </span>
+                        {statusTab === "all" && (isLoading || isFetching) ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#737373]/20 animate-pulse size-4.25 inline-block" />
+                        ) : (
+                            <span
+                                className={cn(
+                                    "px-1.5 py-0.5 rounded-full text-[11px] font-semibold",
+                                    statusTab === "all"
+                                        ? "bg-[#FDF2D9] text-[#B8860B]"
+                                        : "bg-[#EEEEEE] text-[#555555]",
+                                )}
+                            >
+                                {totalCount}
+                            </span>
+                        )}
                     </button>
 
                     <button
@@ -831,9 +848,13 @@ export const AdminProducts: React.FC = () => {
                     >
                         <span className="size-2 rounded-full bg-[#10B981]" />
                         <span>Available</span>
-                        <span className="px-1.5 py-0.5 rounded-full bg-[#EBF7EE] text-[11px] font-semibold text-[#10B981]">
-                            {availableCount}
-                        </span>
+                        {statusTab === "available" && (isLoading || isFetching) ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#737373]/20 animate-pulse size-4.25 inline-block" />
+                        ) : (
+                            <span className="px-1.5 py-0.5 rounded-full bg-[#EBF7EE] text-[11px] font-semibold text-[#10B981]">
+                                {availableCount}
+                            </span>
+                        )}
                     </button>
 
                     <button
@@ -848,9 +869,13 @@ export const AdminProducts: React.FC = () => {
                     >
                         <span className="size-2 rounded-full bg-[#EF4444]" />
                         <span>Out of Stock</span>
-                        <span className="px-1.5 py-0.5 rounded-full bg-[#FDF2F2] text-[11px] font-semibold text-[#EF4444]">
-                            {outOfStockCount}
-                        </span>
+                        {statusTab === "outofstock" && (isLoading || isFetching) ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#737373]/20 animate-pulse size-4.25 inline-block" />
+                        ) : (
+                            <span className="px-1.5 py-0.5 rounded-full bg-[#FDF2F2] text-[11px] font-semibold text-[#EF4444]">
+                                {outOfStockCount}
+                            </span>
+                        )}
                     </button>
                 </div>
 
