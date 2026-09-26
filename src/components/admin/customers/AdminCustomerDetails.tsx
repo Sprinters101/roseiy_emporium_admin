@@ -6,7 +6,6 @@ import {
     Calendar,
     MapPin,
     RefreshCw,
-    Package,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 import { cn } from "@/lib/utils";
@@ -399,7 +398,6 @@ export const AdminCustomerDetails: React.FC = () => {
                                             Order ID
                                         </th>
                                         <th className="py-3.5 px-4">Date</th>
-                                        <th className="py-3.5 px-4">Items</th>
                                         <th className="py-3.5 px-4">Amount</th>
                                         <th className="py-3.5 px-4">Status</th>
                                         <th className="py-3.5 px-4 text-right">
@@ -426,10 +424,6 @@ export const AdminCustomerDetails: React.FC = () => {
                                             !isInTransit &&
                                             !isCancelled;
 
-                                        const firstItem = order.items?.[0];
-                                        const remainingItemsCount =
-                                            (order.items?.length || 1) - 1;
-
                                         return (
                                             <tr
                                                 key={order.orderId || idx}
@@ -449,31 +443,7 @@ export const AdminCustomerDetails: React.FC = () => {
                                                         order.createdAt,
                                                     )}
                                                 </td>
-                                                <td className="py-3.5 px-4 text-xs text-[#171717]">
-                                                    {firstItem ? (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <Package className="size-3.5 text-[#888888] shrink-0" />
-                                                            <span className="truncate max-w-[180px]">
-                                                                {
-                                                                    firstItem.productName
-                                                                }
-                                                            </span>
-                                                            {remainingItemsCount >
-                                                                0 && (
-                                                                <span className="text-[11px] font-semibold text-[#888888]">
-                                                                    +
-                                                                    {
-                                                                        remainingItemsCount
-                                                                    }
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-[#888888]">
-                                                            -
-                                                        </span>
-                                                    )}
-                                                </td>
+
                                                 <td className="py-3.5 px-4 text-sm font-semibold text-[#171717]">
                                                     {formatCurrency(
                                                         order.total,
