@@ -276,7 +276,7 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
         createProduct(
             {
                 name: name.trim(),
-                description: size ? `Volume: ${size}` : undefined,
+                description: size ? `${size}` : undefined,
                 categoryId,
                 brandId: brandId || undefined,
                 status:
@@ -303,7 +303,9 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
                             onProductCreated(localProduct);
                         }
                     }
-                    toast.success(`"${localProduct.name}" created successfully!`);
+                    toast.success(
+                        `"${localProduct.name}" created successfully!`,
+                    );
                     handleBack();
                 },
                 onError: (err: any) => {
@@ -640,7 +642,9 @@ export const AdminAddProduct: React.FC<AdminAddProductProps> = ({
                         {/* Publish Button */}
                         <button
                             type="button"
-                            disabled={isSubmitting || isCreating || isUploadingAny}
+                            disabled={
+                                isSubmitting || isCreating || isUploadingAny
+                            }
                             onClick={handlePublish}
                             className="w-full bg-[#D4AF37] hover:bg-[#C5A265] text-white font-semibold py-3.5 rounded-xl transition-all shadow-xs cursor-pointer text-sm mt-6 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
