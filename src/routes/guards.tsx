@@ -1,32 +1,60 @@
-import { Navigate, Outlet, useLocation } from "react-router";
+import React from "react";
+import { Navigate, useLocation } from "react-router";
 import { useAuth } from "@/context/AuthContext";
+import { isRoleAuthorized } from "@/config/permissions";
+import { AccessDenied } from "@/components/common/AccessDenied";
+import type { AdminRole } from "@/service/types";
 
-/* Auth Guard: Protects client views from guests */
-export const ProtectedRoute = () => {
+/**
+ * Protects routes from unauthenticated users.
+ */
+export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
+    children,
+}) => {
     const { isAuthenticated } = useAuth();
     const location = useLocation();
 
     if (!isAuthenticated) {
-        // Redirect to login, but save the current URL so we can bounce them back after logging in
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    return <Outlet />;
+    return <>{children}</>;
 };
 
-/* Admin Guard: Protects admin dashboard from clients and guests */
-export const AdminRoute = () => {
-    const { isAuthenticated, role } = useAuth();
-    const location = useLocation();
+/**
+ * Redirects authenticated users away from public auth pages (e.g. /login).
+ */
+export const PublicAuthRoute: React.FC<{ children: React.ReactNode }> = ({
+    children,
+}) => {
+    const { isAuthenticated } = useAuth();
 
-    if (!isAuthenticated) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
+    if (isAuthenticated) {
+        return <Navigate to="/" replace />;
     }
 
-    if (role !== "admin") {
-        // If authenticated but not an admin, send them to an unauthorized error page or client dashboard
-        return <Navigate to="/unauthorized" replace />;
+    return <>{children}</>;
+};
+
+/**
+ * Protects specific routes based on allowed admin roles.
+ * Displays <AccessDenied /> if the logged-in admin lacks required permissions.
+ */
+export const RoleRoute: React.FC<{
+    allowedRoles: AdminRole[];
+    moduleName?: string;
+    children: React.ReactNode;
+}> = ({ allowedRoles, moduleName, children }) => {
+    const { role } = useAuth();
+
+    if (!isRoleAuthorized(role, allowedRoles)) {
+        return (
+            <AccessDenied
+                moduleName={moduleName}
+                requiredRoles={allowedRoles}
+            />
+        );
     }
 
-    return <Outlet />;
+    return <>{children}</>;
 };

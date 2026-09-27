@@ -1,6 +1,8 @@
 import React from "react";
 import { Search, Menu } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { ROLE_LABELS } from "@/config/permissions";
+import type { AdminRole } from "@/service/types";
 
 interface AdminTopbarProps {
     onOpenMobileSidebar?: () => void;
@@ -19,12 +21,9 @@ export const AdminTopbar: React.FC<AdminTopbarProps> = ({
         : "Roseiy Bolanle";
 
     const formatRole = (role?: string) => {
-        if (!role) return "Super Administrator";
-        if (role === "super_admin" || role === "admin") return "Super Administrator";
-        if (role === "store_manager") return "Store Manager";
-        if (role === "order_manager") return "Order Manager";
-        if (role === "product_manager") return "Product Manager";
-        return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        if (!role) return "Administrator";
+        const normalized = role.toLowerCase() as AdminRole;
+        return ROLE_LABELS[normalized] || role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     };
 
     const adminRole = formatRole(user?.role);

@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { logo, navItems } from "@/lib/site_data";
+import { isRoleAuthorized } from "@/config/permissions";
 
 interface AdminSidebarProps {
     onNavigate?: () => void;
@@ -15,8 +16,15 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     onNavigate,
     className,
 }) => {
-    const { logout } = useAuth();
+    const { logout, role } = useAuth();
     const navigate = useNavigate();
+
+    const allowedNavItems = React.useMemo(() => {
+        return navItems.filter((item) => {
+            if (!item.allowedRoles || !item.allowedRoles.length) return true;
+            return isRoleAuthorized(role, item.allowedRoles);
+        });
+    }, [role]);
 
     const handleLogout = () => {
         logout();
@@ -52,7 +60,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     className="px-3 py-6 space-y-1.5"
                     aria-label="Admin Navigation"
                 >
-                    {navItems?.map((item) => {
+                    {allowedNavItems?.map((item) => {
                         const Icon = item.icon;
                         return (
                             <NavLink

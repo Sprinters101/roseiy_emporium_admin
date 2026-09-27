@@ -2,7 +2,7 @@ import type { Product } from "@/config/types";
 import {
     Boxes,
     Crown,
-    // CreditCard,
+    CreditCard,
     LayoutDashboard,
     Package,
     Settings,
@@ -10,6 +10,7 @@ import {
     Truck,
     Users,
 } from "lucide-react";
+import type { AdminRole } from "@/service/types";
 
 export const logo =
     "https://res.cloudinary.com/dzk1a6bjt/image/upload/v1785511077/Roseiy_Emporium_Logo_2_aikz0d.png";
@@ -270,16 +271,116 @@ export const contactChampagneImg =
 export const heroBg3 =
     "https://res.cloudinary.com/dzk1a6bjt/image/upload/v1785967279/herobg_qzddbs.png";
 
-export const navItems = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
-    { name: "Products", href: "/products", icon: Package },
-    { name: "Categories", href: "/categories", icon: ShoppingBasket },
-    { name: "Brands", href: "/brands", icon: Crown },
-    { name: "Orders", href: "/orders", icon: Boxes },
-    // { name: "Payments", href: "/payments", icon: CreditCard },
-    { name: "Deliveries", href: "/deliveries", icon: Truck },
-    { name: "Customers", href: "/customers", icon: Users },
-    { name: "Settings", href: "/settings", icon: Settings },
+export interface AdminNavItem {
+    name: string;
+    href: string;
+    icon: any;
+    allowedRoles: AdminRole[];
+}
+
+export const navItems: AdminNavItem[] = [
+    {
+        name: "Dashboard",
+        href: "/",
+        icon: LayoutDashboard,
+        allowedRoles: [
+            "super_admin",
+            "administrator",
+            "admin",
+            "store_manager",
+            "order_manager",
+            "product_manager",
+        ],
+    },
+    {
+        name: "Products",
+        href: "/products",
+        icon: Package,
+        allowedRoles: [
+            "super_admin",
+            "administrator",
+            "admin",
+            "store_manager",
+            "product_manager",
+        ],
+    },
+    {
+        name: "Categories",
+        href: "/categories",
+        icon: ShoppingBasket,
+        allowedRoles: [
+            "super_admin",
+            "administrator",
+            "admin",
+            "store_manager",
+            "product_manager",
+        ],
+    },
+    {
+        name: "Brands",
+        href: "/brands",
+        icon: Crown,
+        allowedRoles: [
+            "super_admin",
+            "administrator",
+            "admin",
+            "store_manager",
+            "product_manager",
+        ],
+    },
+    {
+        name: "Orders",
+        href: "/orders",
+        icon: Boxes,
+        allowedRoles: [
+            "super_admin",
+            "store_manager",
+            "order_manager",
+        ],
+    },
+    {
+        name: "Payments",
+        href: "/payments",
+        icon: CreditCard,
+        allowedRoles: [
+            "super_admin",
+            "store_manager",
+            "order_manager",
+        ],
+    },
+    {
+        name: "Deliveries",
+        href: "/deliveries",
+        icon: Truck,
+        allowedRoles: [
+            "super_admin",
+            "store_manager",
+            "order_manager",
+        ],
+    },
+    {
+        name: "Customers",
+        href: "/customers",
+        icon: Users,
+        allowedRoles: [
+            "super_admin",
+            "store_manager",
+            "order_manager",
+        ],
+    },
+    {
+        name: "Settings",
+        href: "/settings",
+        icon: Settings,
+        allowedRoles: [
+            "super_admin",
+            "administrator",
+            "admin",
+            "store_manager",
+            "order_manager",
+            "product_manager",
+        ],
+    },
 ];
 
 export interface BestSellerItem {

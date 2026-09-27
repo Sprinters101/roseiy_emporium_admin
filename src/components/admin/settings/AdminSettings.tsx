@@ -19,6 +19,7 @@ import {
     useResetAdminPassword,
 } from "@/service/mutations";
 import type { AdminUser, AdminRole } from "@/service/types";
+import { canManageStoreSettings, canManageAdminUsers } from "@/config/permissions";
 
 const ROLE_OPTIONS = [
     { label: "Administrator", value: "administrator" },
@@ -160,7 +161,8 @@ export const AdminSettings: React.FC = () => {
 
     // 3. Admin Users Management Queries & Mutations
     const currentAdminUser = adminMeData?.data?.admin || (user as any);
-    const isSuperAdmin = currentAdminUser?.role === "super_admin";
+    const isSuperAdmin = canManageAdminUsers(currentAdminUser?.role);
+    const canEditBusiness = canManageStoreSettings(currentAdminUser?.role);
 
     const [activeTab, setActiveTab] = useState<"general" | "admins" | "roles">(
         "general",
@@ -1313,18 +1315,20 @@ export const AdminSettings: React.FC = () => {
                     General
                 </button>
 
-                <button
-                    type="button"
-                    onClick={() => setActiveTab("admins")}
-                    className={cn(
-                        "px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors cursor-pointer",
-                        activeTab === "admins"
-                            ? "bg-[#FAF7F2] text-[#D4AF37]"
-                            : "text-[#737373] hover:text-[#171717]",
-                    )}
-                >
-                    Admin Management
-                </button>
+                {isSuperAdmin && (
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("admins")}
+                        className={cn(
+                            "px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors cursor-pointer",
+                            activeTab === "admins"
+                                ? "bg-[#FAF7F2] text-[#D4AF37]"
+                                : "text-[#737373] hover:text-[#171717]",
+                        )}
+                    >
+                        Admin Management
+                    </button>
+                )}
             </div>
 
             {/* TAB 1: GENERAL SETTINGS */}
@@ -1510,44 +1514,46 @@ export const AdminSettings: React.FC = () => {
                                 </h2>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                {isEditingBusiness && (
+                            {canEditBusiness && (
+                                <div className="flex items-center gap-2">
+                                    {isEditingBusiness && (
+                                        <button
+                                            type="button"
+                                            disabled={
+                                                updateBusinessSettingsMutation.isPending
+                                            }
+                                            onClick={handleCancelBusiness}
+                                            className="px-4 py-1.5 rounded-xl border border-[#E5E5E5] hover:bg-[#F5F5F5] text-[#737373] hover:text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-60"
+                                        >
+                                            Cancel
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
                                         disabled={
-                                            updateBusinessSettingsMutation.isPending
+                                            updateBusinessSettingsMutation.isPending ||
+                                            isBusinessLoading
                                         }
-                                        onClick={handleCancelBusiness}
-                                        className="px-4 py-1.5 rounded-xl border border-[#E5E5E5] hover:bg-[#F5F5F5] text-[#737373] hover:text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-60"
+                                        onClick={(e) => {
+                                            if (isEditingBusiness) {
+                                                handleSaveBusiness(e);
+                                            } else {
+                                                setIsEditingBusiness(true);
+                                            }
+                                        }}
+                                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-60"
                                     >
-                                        Cancel
+                                        <span>
+                                            {isEditingBusiness
+                                                ? updateBusinessSettingsMutation.isPending
+                                                    ? "Saving..."
+                                                    : "Save Changes"
+                                                : "Edit"}
+                                        </span>
+                                        <Pen className="size-3.5" />
                                     </button>
-                                )}
-                                <button
-                                    type="button"
-                                    disabled={
-                                        updateBusinessSettingsMutation.isPending ||
-                                        isBusinessLoading
-                                    }
-                                    onClick={(e) => {
-                                        if (isEditingBusiness) {
-                                            handleSaveBusiness(e);
-                                        } else {
-                                            setIsEditingBusiness(true);
-                                        }
-                                    }}
-                                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#171717] hover:bg-[#FAF7F2] text-[#171717] font-semibold text-xs sm:text-sm transition-colors cursor-pointer disabled:opacity-60"
-                                >
-                                    <span>
-                                        {isEditingBusiness
-                                            ? updateBusinessSettingsMutation.isPending
-                                                ? "Saving..."
-                                                : "Save Changes"
-                                            : "Edit"}
-                                    </span>
-                                    <Pen className="size-3.5" />
-                                </button>
-                            </div>
+                                </div>
+                            )}
                         </div>
 
                         {isBusinessLoading ? (

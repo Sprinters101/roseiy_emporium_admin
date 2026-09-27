@@ -181,7 +181,7 @@ export const RecentOrdersCard: React.FC<RecentOrdersCardProps> = ({
                                         </td>
                                         <td className="py-4.5 px-4">
                                             <Link
-                                                to={`/orders?id=${order.id}`}
+                                                to={`/orders/${order.id}`}
                                                 className="text-sm text-[#171717] hover:text-gold-500 underline underline-offset-2 transition-colors cursor-pointer"
                                             >
                                                 View

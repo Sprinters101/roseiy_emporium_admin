@@ -4,6 +4,8 @@ import { toast } from "@/components/ui/sonner";
 import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { CustomConfirmModal } from "@/components/common/CustomConfirmModal";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { canManageCatalogue } from "@/config/permissions";
 import { useGetAdminBrands } from "@/service/queries";
 import {
     useCreateBrand,
@@ -82,6 +84,9 @@ const EmptyBoxIllustration = () => (
 );
 
 export const AdminBrands: React.FC = () => {
+    const { role } = useAuth();
+    const canManage = canManageCatalogue(role);
+
     // React Query API hooks
     const {
         data: brandsResponse,
@@ -235,7 +240,7 @@ export const AdminBrands: React.FC = () => {
                 </div>
 
                 {/* Add Brand Button (Header) - shown when brands exist */}
-                {hasBrands && (
+                {hasBrands && canManage && (
                     <button
                         type="button"
                         onClick={() => {
@@ -383,27 +388,29 @@ export const AdminBrands: React.FC = () => {
                                     </div>
 
                                     {/* Right Side: Edit & Delete Action Buttons */}
-                                    <div className="flex items-center gap-2.5 shrink-0 ml-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleOpenEdit(brand)}
-                                            className="size-8 rounded-full flex items-center justify-center text-[#737373] hover:text-[#171717] hover:bg-[#F5F5F5] transition-colors cursor-pointer"
-                                            title="Edit Brand"
-                                        >
-                                            <Pen className="size-4" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setBrandToDelete(brand);
-                                                setIsDeleteModalOpen(true);
-                                            }}
-                                            className="size-8 rounded-full flex items-center justify-center text-[#EF4444] hover:bg-red-50 transition-colors cursor-pointer"
-                                            title="Delete Brand"
-                                        >
-                                            <Trash2 className="size-4" />
-                                        </button>
-                                    </div>
+                                    {canManage && (
+                                        <div className="flex items-center gap-2.5 shrink-0 ml-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleOpenEdit(brand)}
+                                                className="size-8 rounded-full flex items-center justify-center text-[#737373] hover:text-[#171717] hover:bg-[#F5F5F5] transition-colors cursor-pointer"
+                                                title="Edit Brand"
+                                            >
+                                                <Pen className="size-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setBrandToDelete(brand);
+                                                    setIsDeleteModalOpen(true);
+                                                }}
+                                                className="size-8 rounded-full flex items-center justify-center text-[#EF4444] hover:bg-red-50 transition-colors cursor-pointer"
+                                                title="Delete Brand"
+                                            >
+                                                <Trash2 className="size-4" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}

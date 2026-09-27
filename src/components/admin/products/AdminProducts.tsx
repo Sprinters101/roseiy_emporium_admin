@@ -15,6 +15,8 @@ import { CustomTable, type Column } from "@/components/common/CustomTable";
 import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { CustomConfirmModal } from "@/components/common/CustomConfirmModal";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { canManageCatalogue } from "@/config/permissions";
 import {
     useGetAdminProducts,
     useGetAdminCategories,
@@ -143,6 +145,8 @@ const mapApiProductToProduct = (item: ProductItem): Product => {
 
 export const AdminProducts: React.FC = () => {
     const navigate = useNavigate();
+    const { role } = useAuth();
+    const canManage = canManageCatalogue(role);
 
     // Server-driven query state
     const [page, setPage] = useState(1);
@@ -701,35 +705,41 @@ export const AdminProducts: React.FC = () => {
                 );
             },
         },
-        {
-            key: "action",
-            header: "Action",
-            className: "text-right",
-            headerClassName: "text-right",
-            render: (_, product) => (
-                <div className="flex items-center justify-end gap-3">
-                    <button
-                        type="button"
-                        onClick={() => navigate(`/products/edit/${product.id}`)}
-                        className="text-[#737373] hover:text-[#171717] transition-colors cursor-pointer"
-                        title="Edit product"
-                    >
-                        <Pen className="size-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setProductToDelete(product);
-                            setIsDeleteModalOpen(true);
-                        }}
-                        className="text-[#EF4444] hover:text-red-700 transition-colors cursor-pointer"
-                        title="Delete product"
-                    >
-                        <Trash2 className="size-4" />
-                    </button>
-                </div>
-            ),
-        },
+        ...(canManage
+            ? [
+                  {
+                      key: "action",
+                      header: "Action",
+                      className: "text-right",
+                      headerClassName: "text-right",
+                      render: (_: any, product: Product) => (
+                          <div className="flex items-center justify-end gap-3">
+                              <button
+                                  type="button"
+                                  onClick={() =>
+                                      navigate(`/products/edit/${product.id}`)
+                                  }
+                                  className="text-[#737373] hover:text-[#171717] transition-colors cursor-pointer"
+                                  title="Edit product"
+                              >
+                                  <Pen className="size-4" />
+                              </button>
+                              <button
+                                  type="button"
+                                  onClick={() => {
+                                      setProductToDelete(product);
+                                      setIsDeleteModalOpen(true);
+                                  }}
+                                  className="text-[#EF4444] hover:text-red-700 transition-colors cursor-pointer"
+                                  title="Delete product"
+                              >
+                                  <Trash2 className="size-4" />
+                              </button>
+                          </div>
+                      ),
+                  } as Column<Product>,
+              ]
+            : []),
     ];
 
     return (
@@ -752,17 +762,19 @@ export const AdminProducts: React.FC = () => {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3 self-start sm:self-auto">
-                    {/* Add Product Button */}
-                    <button
-                        type="button"
-                        onClick={() => navigate("/products/new")}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#D4AF37] text-white font-semibold text-xs sm:text-sm hover:bg-[#C5A265] transition-all shadow-xs cursor-pointer"
-                    >
-                        <span>Add Product</span>
-                        <Plus className="size-4 text-white" />
-                    </button>
-                </div>
+                {canManage && (
+                    <div className="flex items-center gap-3 self-start sm:self-auto">
+                        {/* Add Product Button */}
+                        <button
+                            type="button"
+                            onClick={() => navigate("/products/new")}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#D4AF37] text-white font-semibold text-xs sm:text-sm hover:bg-[#C5A265] transition-all shadow-xs cursor-pointer"
+                        >
+                            <span>Add Product</span>
+                            <Plus className="size-4 text-white" />
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Filter & Search Controls Bar */}

@@ -11,7 +11,6 @@ import {
     CheckCircle2,
     XCircle,
     HelpCircle,
-    ShieldAlert,
     ChevronLeft,
     ChevronRight,
 } from "lucide-react";
@@ -23,6 +22,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useGetAdminPayments } from "@/service/queries";
+import { AccessDenied } from "@/components/common/AccessDenied";
+import { ROUTE_PERMISSIONS, isRoleAuthorized } from "@/config/permissions";
 import type {
     PaymentTransactionItem,
     GetPaymentsParams,
@@ -469,26 +470,13 @@ export const AdminPayments: React.FC = () => {
         },
     ];
 
-    // Check for product_manager role access restriction
-    if (role === "product_manager") {
+    // Check for role access restriction
+    if (!isRoleAuthorized(role, ROUTE_PERMISSIONS.payments)) {
         return (
-            <div className="p-8 max-w-xl mx-auto my-12 bg-white border border-[#EAEAEA] rounded-2xl text-center space-y-4 shadow-xs">
-                <div className="size-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-700">
-                    <ShieldAlert className="size-6" />
-                </div>
-                <h2 className="text-lg font-bold text-[#171717]">
-                    Access Restricted
-                </h2>
-                <p className="text-sm text-[#737373]">
-                    The Payments module is restricted to Super Admins, Store Managers, and Order Managers. Product Managers do not have permissions to audit payment transactions.
-                </p>
-                <Link
-                    to="/products"
-                    className="inline-flex px-4 py-2 bg-[#171717] text-white text-xs font-semibold rounded-lg hover:bg-[#333333] transition-colors"
-                >
-                    Return to Products
-                </Link>
-            </div>
+            <AccessDenied
+                moduleName="Payments"
+                requiredRoles={ROUTE_PERMISSIONS.payments}
+            />
         );
     }
 

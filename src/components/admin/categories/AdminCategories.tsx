@@ -4,6 +4,8 @@ import { toast } from "@/components/ui/sonner";
 import { CustomDropdown } from "@/components/common/CustomDropdown";
 import { CustomConfirmModal } from "@/components/common/CustomConfirmModal";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { canManageCatalogue } from "@/config/permissions";
 import { useGetAdminCategories } from "@/service/queries";
 import {
     useCreateCategory,
@@ -86,6 +88,9 @@ const EmptyBoxIllustration = () => (
 );
 
 export const AdminCategories: React.FC = () => {
+    const { role } = useAuth();
+    const canManage = canManageCatalogue(role);
+
     // React Query API hooks
     const {
         data: categoriesResponse,
@@ -256,7 +261,7 @@ export const AdminCategories: React.FC = () => {
                 </div>
 
                 {/* Add Category Button (Header) - shown when categories exist */}
-                {hasCategories && (
+                {hasCategories && canManage && (
                     <button
                         type="button"
                         onClick={() => {
@@ -406,29 +411,31 @@ export const AdminCategories: React.FC = () => {
                                     </div>
 
                                     {/* Right Side: Edit & Delete Action Buttons */}
-                                    <div className="flex items-center gap-2.5 shrink-0 ml-3">
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                handleOpenEdit(category)
-                                            }
-                                            className="size-8 rounded-full flex items-center justify-center text-[#737373] hover:text-[#171717] hover:bg-[#F5F5F5] transition-colors cursor-pointer"
-                                            title="Edit Category"
-                                        >
-                                            <Pen className="size-4" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setCategoryToDelete(category);
-                                                setIsDeleteModalOpen(true);
-                                            }}
-                                            className="size-8 rounded-full flex items-center justify-center text-[#EF4444] hover:bg-red-50 transition-colors cursor-pointer"
-                                            title="Delete Category"
-                                        >
-                                            <Trash2 className="size-4" />
-                                        </button>
-                                    </div>
+                                    {canManage && (
+                                        <div className="flex items-center gap-2.5 shrink-0 ml-3">
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    handleOpenEdit(category)
+                                                }
+                                                className="size-8 rounded-full flex items-center justify-center text-[#737373] hover:text-[#171717] hover:bg-[#F5F5F5] transition-colors cursor-pointer"
+                                                title="Edit Category"
+                                            >
+                                                <Pen className="size-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setCategoryToDelete(category);
+                                                    setIsDeleteModalOpen(true);
+                                                }}
+                                                className="size-8 rounded-full flex items-center justify-center text-[#EF4444] hover:bg-red-50 transition-colors cursor-pointer"
+                                                title="Delete Category"
+                                            >
+                                                <Trash2 className="size-4" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
