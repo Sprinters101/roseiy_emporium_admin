@@ -54,6 +54,8 @@ import type {
     ResetAdminPasswordPayload,
     AdminListResponse,
     AdminDetailResponse,
+    AdminSearchParams,
+    AdminUniversalSearchResponse,
 } from "./types";
 
 // ============================================================================
@@ -760,6 +762,30 @@ export const resetAdminPasswordFunc = async (
     );
     return response.data;
 };
+
+/**
+ * Admin Universal Search
+ * GET /admin/search
+ */
+export const adminSearchFunc = async (
+    params: AdminSearchParams,
+): Promise<AdminUniversalSearchResponse> => {
+    const cleanParams: Record<string, any> = {
+        q: params.q.trim(),
+    };
+    if (params.type && params.type !== "all") {
+        cleanParams.type = params.type;
+    }
+    if (params.limit) {
+        cleanParams.limit = params.limit;
+    }
+    const response = await axiosInstance.get<AdminUniversalSearchResponse>(
+        "/admin/search",
+        { params: cleanParams },
+    );
+    return response.data;
+};
+
 
 
 

@@ -28,6 +28,7 @@ import {
     getBusinessSettingsFunc,
     getAdminUsersFunc,
     getAdminUserByIdFunc,
+    adminSearchFunc,
 } from "./apiFunc";
 import type {
     GetProductsParams,
@@ -36,6 +37,7 @@ import type {
     GetDeliveryAreasParams,
     GetPaymentsParams,
     GetAdminUsersParams,
+    AdminSearchParams,
 } from "./types";
 
 // ============================================================================
@@ -83,6 +85,8 @@ export const queryKeys = {
     adminUsers: (params?: GetAdminUsersParams) =>
         ["admin", "users", params] as const,
     adminUser: (adminId: string) => ["admin", "users", adminId] as const,
+    adminSearch: (params: AdminSearchParams) =>
+        ["admin", "search", params] as const,
 };
 
 // ============================================================================
@@ -421,6 +425,29 @@ export const useGetAdminUser = (adminId?: string) => {
         enabled: Boolean(adminId),
     });
 };
+
+// ============================================================================
+// 13. Universal Search Queries
+// ============================================================================
+
+/**
+ * Hook to perform debounced universal search across admin entities
+ */
+export const useAdminSearch = (
+    params: AdminSearchParams,
+    options?: { enabled?: boolean },
+) => {
+    return useQuery({
+        queryKey: queryKeys.adminSearch(params),
+        queryFn: () => adminSearchFunc(params),
+        enabled:
+            options?.enabled !== undefined
+                ? options.enabled
+                : Boolean(params.q && params.q.trim().length >= 2),
+        staleTime: 1000 * 30, // 30 seconds cache
+    });
+};
+
 
 
 

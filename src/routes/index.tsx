@@ -72,6 +72,17 @@ export const router = createBrowserRouter([
                 ),
             },
             {
+                path: "products/:id",
+                element: (
+                    <RoleRoute
+                        allowedRoles={ROUTE_PERMISSIONS.productsManage}
+                        moduleName="Product Details"
+                    >
+                        <AdminEditProduct />
+                    </RoleRoute>
+                ),
+            },
+            {
                 path: "products/:id/edit",
                 element: (
                     <RoleRoute

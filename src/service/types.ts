@@ -769,3 +769,48 @@ export type AdminPaymentListResponse = ApiResponse<{
 export type AdminPaymentDetailResponse = ApiResponse<{
     payment: PaymentTransactionItem;
 }>;
+
+// ----------------------------------------------------------------------
+// Universal Search Types
+// ----------------------------------------------------------------------
+
+export type UniversalSearchType =
+    | "product"
+    | "order"
+    | "customer"
+    | "category"
+    | "brand";
+
+export interface UniversalSearchResultItem {
+    searchType: UniversalSearchType;
+    id: string;
+    title: string;
+    subtitle?: string;
+    image?: string | null;
+    url: string;
+    data: Record<string, any>;
+}
+
+export interface UniversalSearchGrouped {
+    orders?: UniversalSearchResultItem[];
+    customers?: UniversalSearchResultItem[];
+    products?: UniversalSearchResultItem[];
+    categories?: UniversalSearchResultItem[];
+    brands?: UniversalSearchResultItem[];
+}
+
+export interface UniversalSearchData {
+    query: string;
+    totalResults: number;
+    results: UniversalSearchResultItem[];
+    grouped?: UniversalSearchGrouped;
+}
+
+export type AdminUniversalSearchResponse = ApiResponse<UniversalSearchData>;
+
+export interface AdminSearchParams {
+    q: string;
+    type?: "all" | "product" | "order" | "customer" | "category" | "brand";
+    limit?: number;
+}
+
