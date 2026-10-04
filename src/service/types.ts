@@ -424,22 +424,80 @@ export interface AdminOrderDeliveryAddress {
     country: string;
 }
 
+export interface AdminOrderItemSubUnit {
+    orderItemId?: string;
+    sellingUnitId?: string;
+    name?: string;
+    quantity?: number;
+    unitPrice?: string | number;
+    lineTotal?: string | number;
+}
+
 export interface AdminOrderItemDetail {
-    orderItemId: string;
+    orderItemId?: string;
+    productId?: string;
     productName: string;
+    slug?: string;
+    categoryName?: string;
+    category?: {
+        categoryId: string;
+        name: string;
+        slug: string;
+    };
+    brandName?: string;
+    brand?: {
+        brandId: string;
+        name: string;
+        slug: string;
+    };
+    imageUrl?: string;
+    image?: {
+        imageUrl: string;
+        altText?: string;
+    };
+    product?: any;
+    piecesQuantity?: number;
+    casesQuantity?: number;
+    pieceUnit?: AdminOrderItemSubUnit | null;
+    caseUnit?: AdminOrderItemSubUnit | null;
+    totalQuantity?: number;
+    quantitySummary?: string;
+    lineTotal: string | number;
     sellingUnitName?: string;
     sku?: string;
-    unitPrice: string | number;
-    quantity: number;
-    lineTotal: string | number;
-    product?: any;
+    unitPrice?: string | number;
+    quantity?: number;
+}
+
+export interface AdminOrderPaymentInfo {
+    paymentTransactionId?: string;
+    reference?: string;
+    amount?: string | number;
+    currency?: string;
+    status?: string;
+    providerStatus?: string;
+    paidAt?: string | null;
+    createdAt?: string;
+}
+
+export interface AdminOrderStatusHistoryItem {
+    orderStatusHistoryId: string;
+    orderId: string;
+    status: string;
+    previousStatus?: string | null;
+    createdAt: string;
+    updatedAt?: string;
 }
 
 export interface AdminOrderDetail {
     orderId: string;
     orderNumber: string;
+    customerId?: string;
+    customerFullName?: string;
     customer?: AdminOrderCustomer;
-    deliveryAddress?: AdminOrderDeliveryAddress;
+    deliveryAddress?: string | AdminOrderDeliveryAddress;
+    deliveryAreaId?: string | null;
+    deliveryAreaName?: string | null;
     firstName?: string;
     lastName?: string;
     email?: string;
@@ -450,16 +508,20 @@ export interface AdminOrderDetail {
     state?: string;
     postalCode?: string | null;
     country?: string;
+    currency?: string;
+    currencySymbol?: string;
     subtotal: string | number;
     deliveryFee: string | number;
     total: string | number;
-    currency: string;
     status: AdminOrderStatus;
     paymentReference?: string | null;
     paidAt?: string | null;
     createdAt: string;
     updatedAt?: string;
+    totalItems?: number;
     items: AdminOrderItemDetail[];
+    payment?: AdminOrderPaymentInfo | null;
+    statusHistory?: AdminOrderStatusHistoryItem[];
 }
 
 export interface GetOrdersParams {

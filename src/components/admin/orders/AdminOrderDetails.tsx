@@ -144,15 +144,19 @@ export const AdminOrderDetails: React.FC = () => {
     ];
 
     const customerName =
-        order?.firstName || order?.lastName
-            ? `${order?.firstName} ${order?.lastName}`.trim()
-            : "";
+        order?.customerFullName ||
+        (order?.firstName || order?.lastName
+            ? `${order?.firstName || ""} ${order?.lastName || ""}`.trim()
+            : "");
 
-    const deliveryAddressStr = `${order?.addressLine1} || ${
-        order.addressLine2 ? ` ${order?.addressLine2}` : ""
-    }, ${order?.city}, ${order?.state}${
-        order?.postalCode ? ` - ${order?.postalCode}` : ""
-    }, ${order?.country}`;
+    const deliveryAddressStr =
+        typeof order?.deliveryAddress === "string" && order.deliveryAddress
+            ? order.deliveryAddress
+            : `${order?.addressLine1 || ""}${
+                  order?.addressLine2 ? `, ${order.addressLine2}` : ""
+              }, ${order?.city || ""}, ${order?.state || ""}${
+                  order?.postalCode ? ` - ${order.postalCode}` : ""
+              }, ${order?.country || ""}`;
 
     const subtotalNum = Number(order.subtotal || 0);
     const deliveryFeeNum = Number(order.deliveryFee || 0);
@@ -282,15 +286,45 @@ export const AdminOrderDetails: React.FC = () => {
                                     <tbody className="divide-y divide-[#F0F0F0]">
                                         {order.items.map((item, idx) => {
                                             const itemImage =
+                                                item.imageUrl ||
+                                                item.image?.imageUrl ||
+                                                item.product?.imageUrl ||
                                                 item.product?.images?.[0]
                                                     ?.imageUrl;
                                             const itemBrand =
+                                                item.brandName ||
+                                                item.brand?.name ||
                                                 item.product?.brand?.name ||
                                                 item.sellingUnitName ||
                                                 "-";
-                                            const unitPriceNum = Number(
-                                                item.unitPrice || 0,
-                                            );
+
+                                            const unitPriceDisplay = (() => {
+                                                const parts: string[] = [];
+                                                if (item.pieceUnit?.unitPrice) {
+                                                    parts.push(
+                                                        `₦${Number(item.pieceUnit.unitPrice).toLocaleString()} / Pc`,
+                                                    );
+                                                }
+                                                if (item.caseUnit?.unitPrice) {
+                                                    parts.push(
+                                                        `₦${Number(item.caseUnit.unitPrice).toLocaleString()} / Case`,
+                                                    );
+                                                }
+                                                if (parts.length > 0) {
+                                                    return parts.join(" • ");
+                                                }
+                                                if (item.unitPrice) {
+                                                    return `₦${Number(item.unitPrice).toLocaleString()}`;
+                                                }
+                                                return "-";
+                                            })();
+
+                                            const quantityDisplay =
+                                                item.quantitySummary ||
+                                                (item.totalQuantity !== undefined
+                                                    ? item.totalQuantity
+                                                    : item.quantity ?? 0);
+
                                             const lineTotalNum = Number(
                                                 item.lineTotal || 0,
                                             );
@@ -329,12 +363,11 @@ export const AdminOrderDetails: React.FC = () => {
                                                     <td className="py-4 px-6 text-xs sm:text-sm text-[#171717]">
                                                         {itemBrand}
                                                     </td>
-                                                    <td className="py-4 px-6 text-xs sm:text-sm text-[#171717] font-medium">
-                                                        ₦
-                                                        {unitPriceNum.toLocaleString()}
+                                                    <td className="py-4 px-6 text-xs sm:text-sm text-[#171717] font-medium whitespace-pre-line">
+                                                        {unitPriceDisplay}
                                                     </td>
                                                     <td className="py-4 px-6 text-xs sm:text-sm text-[#171717]">
-                                                        {item.quantity}
+                                                        {quantityDisplay}
                                                     </td>
                                                     <td className="py-4 px-6 text-xs sm:text-sm text-[#171717] text-right font-medium">
                                                         ₦
