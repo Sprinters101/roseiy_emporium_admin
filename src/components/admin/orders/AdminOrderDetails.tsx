@@ -298,37 +298,176 @@ export const AdminOrderDetails: React.FC = () => {
                                                 item.sellingUnitName ||
                                                 "-";
 
-                                            const unitPriceDisplay = (() => {
-                                                const parts: string[] = [];
-                                                if (item.pieceUnit?.unitPrice) {
-                                                    parts.push(
-                                                        `₦${Number(item.pieceUnit.unitPrice).toLocaleString()} / Pc`,
-                                                    );
-                                                }
-                                                if (item.caseUnit?.unitPrice) {
-                                                    parts.push(
-                                                        `₦${Number(item.caseUnit.unitPrice).toLocaleString()} / Case`,
-                                                    );
-                                                }
-                                                if (parts.length > 0) {
-                                                    return parts.join("  •  ");
-                                                }
-                                                if (item.unitPrice) {
-                                                    return `₦${Number(item.unitPrice).toLocaleString()}`;
-                                                }
-                                                return "-";
-                                            })();
+                                            const piecePrice =
+                                                item.pieceUnit?.unitPrice;
+                                            const casePrice =
+                                                item.caseUnit?.unitPrice;
+                                            const hasPiecePrice =
+                                                piecePrice !== undefined &&
+                                                piecePrice !== null &&
+                                                piecePrice !== "";
+                                            const hasCasePrice =
+                                                casePrice !== undefined &&
+                                                casePrice !== null &&
+                                                casePrice !== "";
 
-                                            const quantityDisplay =
-                                                item.quantitySummary ||
-                                                (item.totalQuantity !==
-                                                undefined
-                                                    ? item.totalQuantity
-                                                    : (item.quantity ?? 0));
+                                            const pieceQty =
+                                                item.pieceUnit?.quantity ??
+                                                item.piecesQuantity ??
+                                                0;
+                                            const caseQty =
+                                                item.caseUnit?.quantity ??
+                                                item.casesQuantity ??
+                                                0;
 
                                             const lineTotalNum = Number(
                                                 item.lineTotal || 0,
                                             );
+
+                                            const renderUnitPriceDisplay = () => {
+                                                if (
+                                                    hasPiecePrice ||
+                                                    hasCasePrice
+                                                ) {
+                                                    return (
+                                                        <div className="flex flex-col gap-0.5 text-xs sm:text-sm">
+                                                            {hasPiecePrice && (
+                                                                <div className="whitespace-nowrap">
+                                                                    <span className="font-semibold text-[#171717]">
+                                                                        ₦
+                                                                        {Number(
+                                                                            piecePrice,
+                                                                        ).toLocaleString()}
+                                                                    </span>
+                                                                    <span className="text-[10px] sm:text-xs text-[#737373] font-normal ml-1">
+                                                                        per Piece
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                            {hasCasePrice && (
+                                                                <div className="whitespace-nowrap">
+                                                                    <span className="font-semibold text-[#171717]">
+                                                                        ₦
+                                                                        {Number(
+                                                                            casePrice,
+                                                                        ).toLocaleString()}
+                                                                    </span>
+                                                                    <span className="text-[10px] sm:text-xs text-[#737373] font-normal ml-1">
+                                                                        per Case
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                }
+
+                                                if (item.unitPrice) {
+                                                    return (
+                                                        <div className="whitespace-nowrap text-xs sm:text-sm">
+                                                            <span className="font-semibold text-[#171717]">
+                                                                ₦
+                                                                {Number(
+                                                                    item.unitPrice,
+                                                                ).toLocaleString()}
+                                                            </span>
+                                                            {item.sellingUnitName && (
+                                                                <span className="text-[10px] sm:text-xs text-[#737373] font-normal ml-1">
+                                                                    per{" "}
+                                                                    {
+                                                                        item.sellingUnitName
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <span className="text-xs sm:text-sm text-[#171717]">
+                                                        -
+                                                    </span>
+                                                );
+                                            };
+
+                                            const renderQuantityDisplay = () => {
+                                                if (pieceQty > 0 && caseQty > 0) {
+                                                    return (
+                                                        <div className="flex items-center gap-2 whitespace-nowrap text-xs sm:text-sm text-[#171717] font-medium">
+                                                            <span>
+                                                                {pieceQty}{" "}
+                                                                {pieceQty === 1
+                                                                    ? "Piece"
+                                                                    : "Pieces"}
+                                                            </span>
+                                                            <span className="size-1.5 rounded-full bg-[#D4AF37] shrink-0 inline-block" />
+                                                            <span>
+                                                                {caseQty}{" "}
+                                                                {caseQty === 1
+                                                                    ? "Case"
+                                                                    : "Cases"}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                if (pieceQty > 0) {
+                                                    return (
+                                                        <span className="text-xs sm:text-sm text-[#171717] font-medium whitespace-nowrap">
+                                                            {pieceQty}{" "}
+                                                            {pieceQty === 1
+                                                                ? "Piece"
+                                                                : "Pieces"}
+                                                        </span>
+                                                    );
+                                                }
+
+                                                if (caseQty > 0) {
+                                                    return (
+                                                        <span className="text-xs sm:text-sm text-[#171717] font-medium whitespace-nowrap">
+                                                            {caseQty}{" "}
+                                                            {caseQty === 1
+                                                                ? "Case"
+                                                                : "Cases"}
+                                                        </span>
+                                                    );
+                                                }
+
+                                                if (item.quantitySummary) {
+                                                    const parts =
+                                                        item.quantitySummary.split(
+                                                            /\s+and\s+|\s+•\s+|\s+&\s+/i,
+                                                        );
+                                                    if (parts.length > 1) {
+                                                        return (
+                                                            <div className="flex items-center gap-2 whitespace-nowrap text-xs sm:text-sm text-[#171717] font-medium">
+                                                                <span>
+                                                                    {parts[0].trim()}
+                                                                </span>
+                                                                <span className="size-1.5 rounded-full bg-[#D4AF37] shrink-0 inline-block" />
+                                                                <span>
+                                                                    {parts[1].trim()}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <span className="text-xs sm:text-sm text-[#171717] font-medium whitespace-nowrap">
+                                                            {item.quantitySummary}
+                                                        </span>
+                                                    );
+                                                }
+
+                                                const fallbackQty =
+                                                    item.totalQuantity !==
+                                                    undefined
+                                                        ? item.totalQuantity
+                                                        : (item.quantity ?? 0);
+                                                return (
+                                                    <span className="text-xs sm:text-sm text-[#171717] font-medium whitespace-nowrap">
+                                                        {fallbackQty}
+                                                    </span>
+                                                );
+                                            };
 
                                             return (
                                                 <tr
@@ -364,11 +503,11 @@ export const AdminOrderDetails: React.FC = () => {
                                                     <td className="py-4 px-6 text-xs sm:text-sm text-[#171717]">
                                                         {itemBrand}
                                                     </td>
-                                                    <td className="py-4 px-6 text-xs sm:text-sm text-[#171717] font-medium whitespace-pre-line">
-                                                        {unitPriceDisplay}
+                                                    <td className="py-4 px-6">
+                                                        {renderUnitPriceDisplay()}
                                                     </td>
-                                                    <td className="py-4 px-6 text-xs sm:text-sm text-[#171717]">
-                                                        {quantityDisplay}
+                                                    <td className="py-4 px-6">
+                                                        {renderQuantityDisplay()}
                                                     </td>
                                                     <td className="py-4 px-6 text-xs sm:text-sm text-[#171717] text-right font-medium">
                                                         ₦
