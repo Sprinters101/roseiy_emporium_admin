@@ -311,7 +311,7 @@ export const AdminOrderDetails: React.FC = () => {
                                                     );
                                                 }
                                                 if (parts.length > 0) {
-                                                    return parts.join(" • ");
+                                                    return parts.join("  •  ");
                                                 }
                                                 if (item.unitPrice) {
                                                     return `₦${Number(item.unitPrice).toLocaleString()}`;
@@ -321,9 +321,10 @@ export const AdminOrderDetails: React.FC = () => {
 
                                             const quantityDisplay =
                                                 item.quantitySummary ||
-                                                (item.totalQuantity !== undefined
+                                                (item.totalQuantity !==
+                                                undefined
                                                     ? item.totalQuantity
-                                                    : item.quantity ?? 0);
+                                                    : (item.quantity ?? 0));
 
                                             const lineTotalNum = Number(
                                                 item.lineTotal || 0,
